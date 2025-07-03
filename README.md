@@ -49,15 +49,15 @@ SignConnect is being developed in phases:
 *For detailed milestone information, see [ROADMAP.md](./ROADMAP.md)*
 
 
-## 📊 Project Status
+## Project Status
 
 SignConnect is currently in early development. This project is being built as a portfolio piece to demonstrate full-stack development skills.
 
-## 🤝 Contributing
+## Contributing
 
 This project is currently a personal portfolio project and not open for contributions.
 
-## 👨‍💻 Author
+## Author
 
 **Paulo Jauregui** - [GitHub Profile](https://github.com/HowDiggy)
 
