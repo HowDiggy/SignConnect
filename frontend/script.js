@@ -1,53 +1,86 @@
-// Wait for the HTML document to be fully loaded before running the script
 document.addEventListener("DOMContentLoaded", () => {
-    // Get references to the HTML elements we'll need to interact with
     const startBtn = document.getElementById("start-btn");
     const statusDisplay = document.getElementById("status");
     const transcriptionDisplay = document.getElementById("transcription-display");
 
-    let socket; // Variable to hold the WebSocket object
+    let socket;
+    let mediaRecorder;
+    let interimSpan = null; // To hold the element for interim results
 
-    // Add a click event listener to the "Start" button
     startBtn.addEventListener("click", () => {
-        // If the socket is already open, do nothing
-        if (socket && socket.readyState === WebSocket.OPEN) {
-            console.log("WebSocket is already open.");
-            return;
-        }
+        if (mediaRecorder && mediaRecorder.state === "recording") {
+            mediaRecorder.stop();
+            // The socket will be closed by the server or on its own
+            startBtn.textContent = "Start Transcription";
+        } else {
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    setupWebSocket();
+                    mediaRecorder = new MediaRecorder(stream, {
+                        mimeType: 'audio/webm;codecs=opus',
+                    });
 
-        // Create a new WebSocket connection to our FastAPI server
-        // Note: Use 'ws://' for http and 'wss://' for https
+                    mediaRecorder.ondataavailable = event => {
+                        if (event.data.size > 0 && socket.readyState === WebSocket.OPEN) {
+                            socket.send(event.data);
+                        }
+                    };
+
+                    mediaRecorder.start(1000);
+
+                    startBtn.textContent = "Stop Transcription";
+                    transcriptionDisplay.innerHTML = "";
+                })
+                .catch(error => {
+                    console.error("Error accessing microphone:", error);
+                    statusDisplay.textContent = "Error: Microphone access denied.";
+                });
+        }
+    });
+
+    function setupWebSocket() {
         socket = new WebSocket("ws://localhost:8000/ws");
 
-        // --- WebSocket Event Handlers ---
-
-        // This function runs when the connection is successfully opened
-        socket.onopen = (event) => {
-            console.log("WebSocket connection opened:", event);
+        socket.onopen = () => {
+            console.log("WebSocket connection opened.");
             statusDisplay.textContent = "Connected";
-            // Send a test message to the server once connected
-            socket.send("Hello, Server!");
         };
 
-        // This function runs when a message is received from the server
         socket.onmessage = (event) => {
-            console.log("Message from server:", event.data);
-            // Create a new paragraph element for the message and append it
-            const newTranscription = document.createElement("p");
-            newTranscription.textContent = event.data;
-            transcriptionDisplay.appendChild(newTranscription);
+            const message = event.data;
+
+            if (message.startsWith("interim:")) {
+                // If it's an interim result, update the temporary span
+                if (!interimSpan) {
+                    // Create the span if it doesn't exist
+                    interimSpan = document.createElement('span');
+                    interimSpan.style.color = '#888'; // Make it grey
+                    transcriptionDisplay.appendChild(interimSpan);
+                }
+                interimSpan.textContent = " " + message.substring(8); // Get text after "interim:"
+            } else if (message.startsWith("final:")) {
+                // If it's a final result, make the interim span permanent and clear it
+                if (interimSpan) {
+                    interimSpan.remove();
+                    interimSpan = null;
+                }
+                const finalPara = document.createElement('p');
+                finalPara.textContent = message.substring(7); // Get text after "final:"
+                transcriptionDisplay.appendChild(finalPara);
+            }
         };
 
-        // This function runs if there's an error with the connection
-        socket.onerror = (event) => {
-            console.error("WebSocket error observed:", event);
+        socket.onerror = (error) => {
+            console.error("WebSocket error:", error);
             statusDisplay.textContent = "Error";
         };
 
-        // This function runs when the connection is closed
-        socket.onclose = (event) => {
-            console.log("WebSocket connection closed:", event);
+        socket.onclose = () => {
+            console.log("WebSocket connection closed.");
             statusDisplay.textContent = "Disconnected";
+            if (mediaRecorder && mediaRecorder.state === "recording") {
+                mediaRecorder.stop();
+            }
         };
-    });
+    }
 });

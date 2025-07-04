@@ -18,3 +18,4 @@ coverage/
 .DS_Store
 Thumbs.db
 .venv
+gcp-credentials.json
