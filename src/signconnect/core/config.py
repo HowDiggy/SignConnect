@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     # define your settings here. Pydantic will automatically read
     # the corresponding environment variable
     DATABASE_URL: str
+    GOOGLE_APPLICATION_CREDENTIALS: str
+
 
 # the @lru_cache decorator caches the Settings object. This means the .env file is
 # only read once, the first time this function is called
