@@ -2,15 +2,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const startBtn = document.getElementById("start-btn");
     const statusDisplay = document.getElementById("status");
     const transcriptionDisplay = document.getElementById("transcription-display");
+    const suggestionsContainer = document.getElementById("suggestions-container"); // Get the new container
 
     let socket;
     let mediaRecorder;
-    let interimSpan = null; // To hold the element for interim results
+    let interimSpan = null;
 
     startBtn.addEventListener("click", () => {
         if (mediaRecorder && mediaRecorder.state === "recording") {
             mediaRecorder.stop();
-            // The socket will be closed by the server or on its own
             startBtn.textContent = "Start Transcription";
         } else {
             navigator.mediaDevices.getUserMedia({ audio: true })
@@ -30,6 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     startBtn.textContent = "Stop Transcription";
                     transcriptionDisplay.innerHTML = "";
+                    suggestionsContainer.innerHTML = ""; // Clear old suggestions
                 })
                 .catch(error => {
                     console.error("Error accessing microphone:", error);
@@ -42,31 +43,41 @@ document.addEventListener("DOMContentLoaded", () => {
         socket = new WebSocket("ws://localhost:8000/ws");
 
         socket.onopen = () => {
-            console.log("WebSocket connection opened.");
             statusDisplay.textContent = "Connected";
         };
 
         socket.onmessage = (event) => {
             const message = event.data;
+            const [prefix, content] = message.split(/:(.*)/s);
 
-            if (message.startsWith("interim:")) {
-                // If it's an interim result, update the temporary span
+            if (prefix === "interim") {
                 if (!interimSpan) {
-                    // Create the span if it doesn't exist
                     interimSpan = document.createElement('span');
-                    interimSpan.style.color = '#888'; // Make it grey
+                    interimSpan.style.color = '#888';
                     transcriptionDisplay.appendChild(interimSpan);
                 }
-                interimSpan.textContent = " " + message.substring(8); // Get text after "interim:"
-            } else if (message.startsWith("final:")) {
-                // If it's a final result, make the interim span permanent and clear it
+                interimSpan.textContent = " " + content;
+            } else if (prefix === "final") {
                 if (interimSpan) {
                     interimSpan.remove();
                     interimSpan = null;
                 }
                 const finalPara = document.createElement('p');
-                finalPara.textContent = message.substring(7); // Get text after "final:"
+                finalPara.textContent = content;
                 transcriptionDisplay.appendChild(finalPara);
+            } else if (prefix === "suggestions") {
+                // NEW: Handle suggestions
+                const suggestions = JSON.parse(content);
+                suggestionsContainer.innerHTML = ""; // Clear previous suggestions
+                suggestions.forEach(suggestion => {
+                    const button = document.createElement("button");
+                    button.textContent = suggestion;
+                    button.onclick = () => {
+                        console.log(`Suggestion selected: "${suggestion}"`);
+                        // In the future, this button would trigger text-to-speech
+                    };
+                    suggestionsContainer.appendChild(button);
+                });
             }
         };
 
@@ -76,7 +87,6 @@ document.addEventListener("DOMContentLoaded", () => {
         };
 
         socket.onclose = () => {
-            console.log("WebSocket connection closed.");
             statusDisplay.textContent = "Disconnected";
             if (mediaRecorder && mediaRecorder.state === "recording") {
                 mediaRecorder.stop();

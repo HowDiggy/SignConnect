@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     # the corresponding environment variable
     DATABASE_URL: str
     GOOGLE_APPLICATION_CREDENTIALS: str
+    GEMINI_API_KEY: str
 
 
 # the @lru_cache decorator caches the Settings object. This means the .env file is

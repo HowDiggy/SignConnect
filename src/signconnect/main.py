@@ -1,6 +1,9 @@
 import asyncio
+import json
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from google.cloud import speech
+
+from signconnect.llm.client import get_response_suggestions
 
 app = FastAPI(
     title="SignConnect API",
@@ -58,6 +61,19 @@ async def audio_processor(websocket: WebSocket, queue: asyncio.Queue):
                     # Send final results with "final:" prefix
                     print(f"Final transcript: {transcript}")
                     await websocket.send_text(f"final: {transcript}")
+
+                    # call the Gemini API
+                    print("Getting suggestions from Gemini...")
+                    suggestions_text = get_response_suggestions(transcript)
+
+                    if suggestions_text:
+                        # process the text into a list
+                        suggestions_list = [s.strip() for s in suggestions_text.split('\n') if s.strip()]
+                        print(f"Gemini suggestions: {suggestions_list}")
+
+                    # send the list as a JSON string with a prefix
+                    await websocket.send_text(f"suggestions:{json.dumps(suggestions_list)}")
+
                 else:
                     # Send interim results with "interim:" prefix
                     print(f"Interim transcript: {transcript}")
