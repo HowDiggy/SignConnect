@@ -2,10 +2,31 @@ import asyncio
 import json
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from google.cloud import speech
-
+from fastapi import Depends, HTTPException
+from sqlalchemy.orm import Session
+from signconnect import crud, schemas
+from signconnect.db import database, models
+from signconnect.db.database import get_db
+from contextlib import asynccontextmanager
 from signconnect.llm.client import get_response_suggestions
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Handles application startup and shutdown events.
+    :param app:
+    :return:
+    """
+    print("Application startup: Creating database tables...")
+    # Create database tables
+    models.Base.metadata.create_all(bind=database.engine)
+    yield
+    print("Appliccation shutdown.")
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title="SignConnect API",
     description="API for the SignConnect assistive communication application.",
     version="0.1.0"
@@ -101,3 +122,19 @@ async def websocket_endpoint(websocket: WebSocket):
     for task in pending:
         task.cancel()
     print("WebSocket connection closed.")
+
+# --- User Endpoints ---
+
+@app.post("/users/", response_model=schemas.User)
+def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
+    """
+    Endpoint to create a new user.
+    :param user:
+    :param db:
+    :return:
+    """
+
+    db_user = crud.get_user_by_email(db, email=user.email)
+    if db_user:
+        raise HTTPException(status_code=400, detail="User with this email already exists.")
+    return crud.create_user(db=db, user=user)
