@@ -1,14 +1,14 @@
 import asyncio
 import json
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, Query
 from google.cloud import speech
-from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 from signconnect import crud, schemas
 from signconnect.db import database, models
 from signconnect.db.database import get_db
 from contextlib import asynccontextmanager
 from signconnect.llm.client import get_response_suggestions
+from firebase import verify_firebase_token
 
 
 @asynccontextmanager
@@ -105,8 +105,25 @@ async def audio_processor(websocket: WebSocket, queue: asyncio.Queue):
     finally:
         print("Stopped processing audio.")
 
+async def get_current_user(token: str = Query(...)):
+    """
+    Dependency to verify the Firebase token from a query parameter.
+
+    :param token:
+    :return:
+    """
+    user = verify_firebase_token(token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+    return user
+
+
 @app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_endpoint(
+        websocket: WebSocket,
+        user: dict = Depends(get_current_user),
+):
+
     """Main WebSocket endpoint to handle the bidirectional audio stream."""
     await websocket.accept()
     audio_queue = asyncio.Queue()
