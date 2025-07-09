@@ -19,3 +19,4 @@ coverage/
 Thumbs.db
 .venv
 gcp-credentials.json
+firebase-credentials.json
