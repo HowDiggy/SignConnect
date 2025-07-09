@@ -3,6 +3,7 @@ import uuid
 from sqlalchemy.orm import Session
 from signconnect.db import models
 from signconnect import schemas
+from signconnect import security
 
 def get_user(db: Session, user_id: int) -> models.User | None:
     """
@@ -24,17 +25,19 @@ def get_user_by_email(db: Session, email: str) -> models.User | None:
 
 def create_user(db: Session, user: schemas.UserCreate) -> models.User:
     """
-    Create a new user in the database.
-    Note: need to hash the password here.
+    Create a new user in the database with a hashed password.
     :param db:
     :param user:
     :return:
     """
 
-    # for now, storing password directly. We'll add hashing later.
-
-    fake_hashed_password = user.password + "notreallyhashed"
-    db_user = models.User(email=user.email, password_hash=fake_hashed_password, is_active=True)
+    hashed_password = security.get_password_hash(user.password)
+    db_user = models.User(
+        email=user.email,
+        username=user.username,
+        password_hash=hashed_password,
+        is_active=True,
+    )
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
