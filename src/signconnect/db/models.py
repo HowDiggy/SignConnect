@@ -26,6 +26,7 @@ class User(Base):
     # is calculated every time a new row is created, rather than just once when the applications starts
 
     conversations = relationship("Conversation", back_populates="user")
+    preferences = relationship("UserPreference", back_populates="owner")
 
 class Conversation(Base):
     """
@@ -54,3 +55,16 @@ class ConversationTurn(Base):
     timestamp = Column(DateTime, default=lambda: datetime.datetime.now(timezone.utc))
 
     conversation = relationship("Conversation", back_populates="turns")
+
+class UserPreference(Base):
+    """
+    Model for storing user-specific preferences.
+    """
+    __tablename__ = "user_preferences"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    category = Column(String, index=True, nullable=False)
+    preference_text = Column(String, nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+
+    owner = relationship("User", back_populates="preferences")
