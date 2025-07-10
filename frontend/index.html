@@ -9,14 +9,17 @@
 
     <h1>SignConnect</h1>
 
+    <div id="user-info-container" style="display:none;">
+        <p><strong>User Status:</strong> <span id="user-status"></span></p>
+        <button id="logout-btn">Log Out</button>
+    </div>
+
     <div id="auth-container">
         <h2>Auth</h2>
         <input type="email" id="email" placeholder="Email" />
         <input type="password" id="password" placeholder="Password" />
         <button id="signup-btn">Sign Up</button>
         <button id="login-btn">Log In</button>
-        <button id="logout-btn" style="display:none;">Log Out</button>
-        <p><strong>User Status:</strong> <span id="user-status">Logged Out</span></p>
     </div>
 
     <hr>
@@ -38,7 +41,7 @@
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
       import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
 
-    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+       // For Firebase JS SDK v7.20.0 and later, measurementId is optional
     const firebaseConfig = {
       apiKey: "REMOVED_API_KEY",
       authDomain: "robust-form-464822-c0.firebaseapp.com",
@@ -48,6 +51,7 @@
       appId: "1:300931117814:web:ea51ca90c5bd58a3a1f2d7",
       measurementId: "G-HZH7QK7NL9"
     };
+
       // Initialize Firebase
       const app = initializeApp(firebaseConfig);
       // Make auth functions available to your other script
