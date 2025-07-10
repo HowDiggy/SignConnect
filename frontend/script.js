@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
-    // Get references to all the new UI elements
+    // Get references to all UI elements, including the new container
     const emailInput = document.getElementById("email");
     const passwordInput = document.getElementById("password");
     const signUpBtn = document.getElementById("signup-btn");
@@ -8,6 +8,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const userStatus = document.getElementById("user-status");
 
     const authContainer = document.getElementById("auth-container");
+    const userInfoContainer = document.getElementById("user-info-container");
     const transcriptionContainer = document.getElementById("transcription-container");
 
     const startBtn = document.getElementById("start-btn");
@@ -15,7 +16,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const transcriptionDisplay = document.getElementById("transcription-display");
     const suggestionsContainer = document.getElementById("suggestions-container");
 
-    // Get Firebase auth functions from the window object
     const { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } = window.firebaseAuth;
     const auth = getAuth(window.firebaseApp);
 
@@ -25,24 +25,26 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- Authentication Logic ---
 
-    // Listener for authentication state changes
     onAuthStateChanged(auth, user => {
         if (user) {
-            // User is signed in
+            // User is signed in, update UI accordingly
             user.getIdToken().then(token => {
                 currentUserToken = token;
                 userStatus.textContent = `Logged in as ${user.email}`;
+
+                // Hide login form, show user info and transcription sections
                 authContainer.style.display = "none";
+                userInfoContainer.style.display = "block";
                 transcriptionContainer.style.display = "block";
-                logOutBtn.style.display = "inline";
             });
         } else {
-            // User is signed out
+            // User is signed out, update UI accordingly
             currentUserToken = null;
-            userStatus.textContent = "Logged Out";
+
+            // Show login form, hide user info and transcription sections
             authContainer.style.display = "block";
+            userInfoContainer.style.display = "none";
             transcriptionContainer.style.display = "none";
-            logOutBtn.style.display = "none";
         }
     });
 
@@ -106,9 +108,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     function setupWebSocket(token) {
-        // Append the token as a query parameter
         const wsUrl = `ws://localhost:8000/ws?token=${token}`;
-        socket = new WebSocket(ws_url);
+        socket = new WebSocket(wsUrl);
 
         socket.onopen = () => statusDisplay.textContent = "Connected";
         socket.onclose = () => {
@@ -123,7 +124,6 @@ document.addEventListener("DOMContentLoaded", () => {
         socket.onmessage = (event) => {
             const message = event.data;
             const [prefix, content] = message.split(/:(.*)/s);
-
             if (prefix === "suggestions") {
                 const suggestions = JSON.parse(content);
                 suggestionsContainer.innerHTML = "";
@@ -133,17 +133,20 @@ document.addEventListener("DOMContentLoaded", () => {
                     suggestionsContainer.appendChild(button);
                 });
             } else {
-                // Handle final and interim text
-                let p = transcriptionDisplay.querySelector(`[data-final='false']`) || document.createElement('p');
+                let p = transcriptionDisplay.querySelector(`p[data-final='false']`);
+                if (!p) {
+                    p = document.createElement('p');
+                    p.dataset.final = 'false';
+                    p.style.color = '#888';
+                    transcriptionDisplay.appendChild(p);
+                }
+
                 p.textContent = content;
 
                 if (prefix === "final") {
                     p.dataset.final = 'true';
-                } else {
-                    p.dataset.final = 'false';
-                    p.style.color = '#888';
+                    p.style.color = '#000';
                 }
-                transcriptionDisplay.appendChild(p);
             }
         };
     }
