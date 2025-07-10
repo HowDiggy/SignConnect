@@ -7,6 +7,7 @@ from sqlalchemy import Column, String, DateTime, ForeignKey, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import timezone
+from pgvector.sqlalchemy import Vector
 
 from signconnect.db.database import Base
 
@@ -27,7 +28,7 @@ class User(Base):
 
     conversations = relationship("Conversation", back_populates="user")
     preferences = relationship("UserPreference", back_populates="owner")
-
+    scenarios = relationship("Scenario", back_populates="owner")
 class Conversation(Base):
     """
     Conversation model representing a single communication session.
@@ -68,3 +69,34 @@ class UserPreference(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
 
     owner = relationship("User", back_populates="preferences")
+
+class Scenario(Base):
+    """
+    Model for a communication scenario, like "Restaurant" or "Doctor's Office".
+    """
+    __tablename__ = "scenarios"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String, nullable=False)
+    description = Column(String)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+
+    owner = relationship("User", back_populates="scenarios")
+    questions = relationship("ScenarioQuestion", back_populates="scenario")
+
+
+class ScenarioQuestion(Base):
+    """
+    Model for a specific question within a scenario.
+    """
+    __tablename__ = "scenario_questions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    question_text = Column(String, nullable=False)
+    user_answer_text = Column(String, nullable=False)
+    # The vector embedding for the question text. The number (384) is the
+    # dimension of the embeddings produced by our chosen model.
+    question_embedding = Column(Vector(384))
+    scenario_id = Column(UUID(as_uuid=True), ForeignKey("scenarios.id"), nullable=False)
+
+    scenario = relationship("Scenario", back_populates="questions")

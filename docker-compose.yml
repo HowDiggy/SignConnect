@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:15
+    image: ankane/pgvector
     container_name: signconnect_db
     environment:
       - POSTGRES_USER=myuser

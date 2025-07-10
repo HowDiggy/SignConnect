@@ -2,7 +2,35 @@ from __future__ import annotations
 from pydantic import BaseModel, ConfigDict
 import uuid
 from datetime import datetime
-from typing import List
+from typing import List, Optional
+
+# --- ScenarioQuestion Schemas ---
+class ScenarioQuestionBase(BaseModel):
+    question_text: str
+    user_answer_text: str
+
+class ScenarioQuestionCreate(ScenarioQuestionBase):
+    pass
+
+class ScenarioQuestion(ScenarioQuestionBase):
+    id: uuid.UUID
+    scenario_id: uuid.UUID
+    model_config = ConfigDict(from_attributes=True)
+
+
+# --- Scenario Schemas ---
+class ScenarioBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+class ScenarioCreate(ScenarioBase):
+    pass
+
+class Scenario(ScenarioBase):
+    id: uuid.UUID
+    questions: List[ScenarioQuestion] = []
+    model_config = ConfigDict(from_attributes=True)
+
 
 # --- ConversationTurn Schemas ---
 class ConversationTurnBase(BaseModel):
@@ -15,6 +43,7 @@ class ConversationTurn(ConversationTurnBase):
     id: uuid.UUID
     timestamp: datetime
     model_config = ConfigDict(from_attributes=True)
+
 
 # --- Conversation Schemas ---
 class ConversationBase(BaseModel):
@@ -29,6 +58,7 @@ class Conversation(ConversationBase):
     turns: List['ConversationTurn'] = []
     model_config = ConfigDict(from_attributes=True)
 
+
 # --- Preference Schemas ---
 class UserPreferenceBase(BaseModel):
     category: str
@@ -42,6 +72,7 @@ class UserPreference(UserPreferenceBase):
     user_id: uuid.UUID
     model_config = ConfigDict(from_attributes=True)
 
+
 # --- User Schemas ---
 class UserBase(BaseModel):
     email: str
@@ -52,9 +83,12 @@ class User(UserBase):
     is_active: bool
     conversations: List['Conversation'] = []
     preferences: List['UserPreference'] = []
+    scenarios: List['Scenario'] = []
     model_config = ConfigDict(from_attributes=True)
+
 
 # Manually trigger the resolution of the forward references
 User.model_rebuild()
 Conversation.model_rebuild()
 UserPreference.model_rebuild()
+Scenario.model_rebuild()
