@@ -109,8 +109,88 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function fetchAndDisplayScenarios() {
         if (!currentUserToken) return;
-        // NOTE: In the future, this will fetch scenarios. For now, it's a placeholder.
-        scenariosListDiv.innerHTML = "<p>Scenario display coming soon.</p>";
+
+        try {
+            const response = await fetch("/scenarios/", {
+                method: "GET",
+                headers: {
+                    "Authorization": `Bearer ${currentUserToken}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to fetch scenarios.");
+            }
+
+            const scenarios = await response.json();
+            scenariosListDiv.innerHTML = "<h3>Your Scenarios</h3>"; // Clear old list and add header
+
+            if (scenarios.length === 0) {
+                scenariosListDiv.innerHTML += "<p>You haven't created any scenarios yet.</p>";
+                return;
+            }
+
+            scenarios.forEach(scenario => {
+                const scenarioDiv = document.createElement("div");
+                scenarioDiv.className = "scenario-item";
+                scenarioDiv.innerHTML = `
+                    <h4>${scenario.name}</h4>
+                    <ul>
+                        ${scenario.questions.map(q => `<li><b>Q:</b> ${q.question_text} <br> <b>A:</b> ${q.user_answer_text}</li>`).join('')}
+                    </ul>
+                    <div class="add-question-form">
+                        <input type="text" placeholder="Question (e.g., How are you today?)" class="scenario-question-text">
+                        <input type="text" placeholder="Your Answer (e.g., I'm doing well, thanks!)" class="scenario-answer-text">
+                        <button class="add-question-btn" data-scenario-id="${scenario.id}">Add Question</button>
+                    </div>
+                `;
+                scenariosListDiv.appendChild(scenarioDiv);
+            });
+
+            // Add event listeners to all the new "Add Question" buttons
+            document.querySelectorAll('.add-question-btn').forEach(button => {
+                button.addEventListener('click', addQuestionToScenario);
+            });
+
+        } catch (error) {
+            console.error("Error fetching scenarios:", error);
+            scenariosListDiv.innerHTML = "<p>Could not load scenarios.</p>";
+        }
+    }
+
+    async function addQuestionToScenario(event) {
+        const button = event.target;
+        const scenarioId = button.dataset.scenarioId;
+        const form = button.closest('.add-question-form');
+        const questionText = form.querySelector('.scenario-question-text').value;
+        const userAnswerText = form.querySelector('.scenario-answer-text').value;
+
+        if (!questionText.trim() || !userAnswerText.trim() || !currentUserToken) {
+            alert("Please fill in both the question and answer.");
+            return;
+        }
+
+        try {
+            const response = await fetch(`/scenarios/${scenarioId}/questions/`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${currentUserToken}`
+                },
+                body: JSON.stringify({ question_text: questionText, user_answer_text: userAnswerText })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || "Failed to add question");
+            }
+
+            fetchAndDisplayScenarios(); // Refresh the entire list to show the new question
+
+        } catch (error) {
+            console.error("Error adding question:", error);
+            alert(error.message);
+        }
     }
 
     addScenarioBtn.addEventListener("click", async () => {

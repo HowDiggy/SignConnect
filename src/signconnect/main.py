@@ -273,7 +273,7 @@ def create_scenario(
     if db_user is None:
         user_to_create = schemas.UserCreate(
             email=firebase_user_email,
-            username=current_user.get("username") or firebase_user_email,
+            username=current_user.get("name") or firebase_user_email,
             password= "firebase_user_password",
         )
         db_user = crud.create_user(db=db, user=user_to_create)
@@ -318,3 +318,22 @@ def create_scenario_question(
         raise HTTPException(status_code=403, detail="Not authorized to add questions to this scenario.")
 
     return crud.create_scenario_question(db=db, question=question, scenario_id=scenario_id)
+
+@app.get("/scenarios/", response_model=list[schemas.Scenario])
+def read_scenarios_for_user(
+        db: Session = Depends(get_db),
+        current_user: dict = Depends(get_current_user),
+):
+    """
+    Retrieve all scenarios for currently authenticated user.
+
+    :param db:
+    :param current_user:
+    :return:
+    """
+    db_user = crud.get_user_by_email(db, email=current_user.get("email"))
+    if not db_user:
+        return []  # If user not in our DB, they have no scenarios
+
+    scenarios = crud.get_scenarios_by_user(db, user_id=db_user.id)
+    return scenarios

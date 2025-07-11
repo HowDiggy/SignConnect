@@ -88,7 +88,7 @@ def create_conversation_turn(db: Session, turn: schemas.ConversationTurnCreate, 
 
     # this function assumes a conversation model exists and you'd link to it.
     # for now, let's simplify and link directly to the user.
-    db_turn = models.ConversationTurn(**turn.model_dump(), owner_id=user_id)
+    db_turn = models.ConversationTurn(**turn.model_dump(), user_id=user_id)
     db.add(db_turn)
     db.commit()
     db.refresh(db_turn)
@@ -184,3 +184,14 @@ def get_scenario_by_name(db: Session, name: str, user_id: uuid.UUID) -> models.S
         models.Scenario.name == name,
         models.Scenario.user_id == user_id
     ).first()
+
+def get_scenario_by_user(db: Session, user_id: uuid.UUID) -> list[models.Scenario]:
+    """
+    Retrieves all scenarios owned by a specific user.
+
+    :param db:
+    :param user_id:
+    :return:
+    """
+
+    return db.query(models.Scenario).filter(models.Scenario.user_id == user_id).all()
