@@ -111,7 +111,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!currentUserToken) return;
 
         try {
-            const response = await fetch("/scenarios/", {
+            const response = await fetch("/users/me/scenarios/", {
                 method: "GET",
                 headers: {
                     "Authorization": `Bearer ${currentUserToken}`
@@ -171,7 +171,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         try {
-            const response = await fetch(`/scenarios/${scenarioId}/questions/`, {
+            const response = await fetch(`/users/me/scenarios/${scenarioId}/questions/`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -201,7 +201,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         try {
-            const response = await fetch("/scenarios/", {
+            const response = await fetch("/users/me/scenarios/", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
