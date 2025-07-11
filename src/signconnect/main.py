@@ -16,6 +16,8 @@ from .llm.client import get_response_suggestions
 from .firebase import verify_firebase_token
 
 from .routers import scenarios
+from .dependencies import get_current_user
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -31,9 +33,20 @@ async def lifespan(app: FastAPI):
     print("Creating database tables...")
     # Create database tables
     models.Base.metadata.create_all(bind=database.engine)
+
+    # Tell the main app to use the new router
+    print("Including scenarios router...")
+    app.include_router(scenarios.router)
+
+    # --- NEW DEBUGGING STEP ---
+    print("\n--- Registered Routes ---")
+    for route in app.routes:
+        if hasattr(route, "path"):
+            print(f"Path: {route.path}, Name: {route.name}")
+    print("-----------------------\n")
+
     yield
     print("Appliccation shutdown.")
-
 
 app = FastAPI(
     lifespan=lifespan,
@@ -135,39 +148,6 @@ async def audio_processor(websocket: WebSocket, queue: asyncio.Queue, user: dict
         print(f"Error during transcription: {e}")
     finally:
         print("Stopped processing audio.")
-
-
-async def get_current_user(
-        authorization: str | None = Header(None),
-        token_from_query: str | None = Query(None, alias="token")
-):
-    """
-    Dependency to verify a Firebase token from either the Authorization header
-    (for HTTP requests) or a query parameter (for WebSocket connections).
-    """
-    token = None
-    if authorization and authorization.startswith("Bearer "):
-        # Extract token from "Bearer <token>" header
-        token = authorization.split("Bearer ")[1]
-    elif token_from_query:
-        # Use token from query parameter
-        token = token_from_query
-
-    if not token:
-        raise HTTPException(
-            status_code=401,
-            detail="Not authenticated",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    user = verify_firebase_token(token)
-    if not user:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    return user
 
 
 @app.websocket("/ws")

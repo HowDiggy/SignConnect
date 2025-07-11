@@ -107,56 +107,57 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- Scenario Management Logic ---
 
-    async function fetchAndDisplayScenarios() {
-        if (!currentUserToken) return;
+async function fetchAndDisplayScenarios() {
+    if (!currentUserToken) return;
 
-        try {
-            const response = await fetch("/users/me/scenarios/", {
-                method: "GET",
-                headers: {
-                    "Authorization": `Bearer ${currentUserToken}`
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error("Failed to fetch scenarios.");
+    try {
+        // This URL MUST match the path in your router file
+        const response = await fetch("/users/me/scenarios/", {
+            method: "GET",
+            headers: {
+                "Authorization": `Bearer ${currentUserToken}`
             }
+        });
 
-            const scenarios = await response.json();
-            scenariosListDiv.innerHTML = "<h3>Your Scenarios</h3>"; // Clear old list and add header
-
-            if (scenarios.length === 0) {
-                scenariosListDiv.innerHTML += "<p>You haven't created any scenarios yet.</p>";
-                return;
-            }
-
-            scenarios.forEach(scenario => {
-                const scenarioDiv = document.createElement("div");
-                scenarioDiv.className = "scenario-item";
-                scenarioDiv.innerHTML = `
-                    <h4>${scenario.name}</h4>
-                    <ul>
-                        ${scenario.questions.map(q => `<li><b>Q:</b> ${q.question_text} <br> <b>A:</b> ${q.user_answer_text}</li>`).join('')}
-                    </ul>
-                    <div class="add-question-form">
-                        <input type="text" placeholder="Question (e.g., How are you today?)" class="scenario-question-text">
-                        <input type="text" placeholder="Your Answer (e.g., I'm doing well, thanks!)" class="scenario-answer-text">
-                        <button class="add-question-btn" data-scenario-id="${scenario.id}">Add Question</button>
-                    </div>
-                `;
-                scenariosListDiv.appendChild(scenarioDiv);
-            });
-
-            // Add event listeners to all the new "Add Question" buttons
-            document.querySelectorAll('.add-question-btn').forEach(button => {
-                button.addEventListener('click', addQuestionToScenario);
-            });
-
-        } catch (error) {
-            console.error("Error fetching scenarios:", error);
-            scenariosListDiv.innerHTML = "<p>Could not load scenarios.</p>";
+        if (!response.ok) {
+            // This will now throw the error because of the 404
+            throw new Error("Failed to fetch scenarios. Check the URL.");
         }
+
+        const scenarios = await response.json();
+        scenariosListDiv.innerHTML = "<h3>Your Scenarios</h3>";
+
+        if (scenarios.length === 0) {
+            scenariosListDiv.innerHTML += "<p>You haven't created any scenarios yet.</p>";
+            return;
+        }
+
+        scenarios.forEach(scenario => {
+            const scenarioDiv = document.createElement("div");
+            scenarioDiv.className = "scenario-item";
+            scenarioDiv.innerHTML = `
+                <h4>${scenario.name}</h4>
+                <ul>
+                    ${scenario.questions.map(q => `<li><b>Q:</b> ${q.question_text} <br> <b>A:</b> ${q.user_answer_text}</li>`).join('')}
+                </ul>
+                <div class="add-question-form">
+                    <input type="text" placeholder="Question" class="scenario-question-text">
+                    <input type="text" placeholder="Your Answer" class="scenario-answer-text">
+                    <button class="add-question-btn" data-scenario-id="${scenario.id}">Add Question</button>
+                </div>
+            `;
+            scenariosListDiv.appendChild(scenarioDiv);
+        });
+
+        document.querySelectorAll('.add-question-btn').forEach(button => {
+            button.addEventListener('click', addQuestionToScenario);
+        });
+
+    } catch (error) {
+        console.error("Error fetching scenarios:", error);
+        scenariosListDiv.innerHTML = "<p>Could not load scenarios.</p>";
     }
+}
 
     async function addQuestionToScenario(event) {
         const button = event.target;

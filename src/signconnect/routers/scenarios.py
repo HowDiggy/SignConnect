@@ -1,28 +1,47 @@
+print("--- SCENARIOS ROUTER FILE IS BEING IMPORTED ---")
+
 import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import crud, schemas
 from ..db.database import get_db
-from ..main import get_current_user # We import the dependency from main
+from ..dependencies import get_current_user
 
 # Create a new router object
 router = APIRouter(
     prefix="/users/me/scenarios",
     tags=["scenarios"],
 )
+# ADD THIS TEST ENDPOINT
+@router.get("/test")
+def test_router():
+    return {"message": "The scenarios router is working!"}
 
 @router.get("/", response_model=list[schemas.Scenario])
 def read_scenarios_for_user(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
+        db: Session = Depends(get_db),
+        current_user: dict = Depends(get_current_user)
 ):
-    """Retreive all scenarios for current user."""
+    """
+    Retrieve all scenarios for the currently authenticated user.
+    """
+    print("--- 1. Entered read_scenarios_for_user endpoint ---")
+    firebase_user_email = current_user.get("email")
+    print(f"--- 2. Got email from Firebase token: {firebase_user_email} ---")
 
-    db_user = crud.get_user_by_email(db, email=current_user.get("email"))
+    db_user = crud.get_user_by_email(db, email=firebase_user_email)
+
     if not db_user:
+        print(f"--- 3. User not found in local DB. Returning empty list. ---")
         return []
-    return crud.get_scenarios_by_user(db, user_id=db_user.id)
+
+    print(f"--- 3. Found user in local DB with ID: {db_user.id} ---")
+
+    scenarios = crud.get_scenarios_by_user(db, user_id=db_user.id)
+    print(f"--- 4. Found {len(scenarios)} scenarios for this user. ---")
+
+    return scenarios
 
 @router.post("/", response_model=schemas.Scenario)
 def create_scenario(
