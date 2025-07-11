@@ -92,4 +92,4 @@ We are in the process of building the frontend UI for the personalization engine
     
 3. **Enhance the LLM Prompt:** Update the `llm/client.py` to use the newly fetched user preferences and vector search results to create hyper-personalized prompts for Gemini.
     
-4. **Polish and Deploy:** Refine the UI, write tests, and deploy the application to the cloud.
+4. **Polish and Deploy:** Refine the UI, write tests, refactor code to include router for endpoints, and deploy the application to the cloud.
