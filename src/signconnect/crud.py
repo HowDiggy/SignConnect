@@ -44,6 +44,24 @@ def get_user_preferences(db: Session, user_id: uuid.UUID, skip: int = 0, limit: 
     """
     return db.query(models.UserPreference).filter(models.UserPreference.user_id == user_id).offset(skip).limit(limit).all()
 
+def create_user(db: Session, user: schemas.UserCreate) -> models.User:
+    """
+    Creates a user in our local DB to sync with Firebase.
+    Password is a placeholder as Firebase handles real auth.
+    """
+    # Use a simple placeholder hash. No security functions needed.
+    placeholder_hash = "firebase_auth_user"
+    db_user = models.User(
+        email=user.email,
+        username=user.username,
+        password_hash=placeholder_hash,
+        is_active=True
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
 def create_user_preference(db: Session, preference: schemas.UserPreferenceCreate, user_id: uuid.UUID) -> models.UserPreference:
     """
     Creates a new user preference record for a user.
@@ -117,7 +135,7 @@ def create_scenario_question(db: Session, question: schemas.ScenarioQuestionCrea
     db.refresh(db_question)
     return db_question
 
-def find_similar_questions(db: Session, query_text: str, user_id: uuid.UUID) -> models.ScenarioQuestion | None:
+def find_similar_question(db: Session, query_text: str, user_id: uuid.UUID) -> models.ScenarioQuestion | None:
     """
     Finds the most similar ScenarioQuestion for a given user based on a query text.
 

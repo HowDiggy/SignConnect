@@ -2,7 +2,7 @@ import asyncio
 import json
 import uuid
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, Query
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, Query, Header
 from google.cloud import speech
 from sqlalchemy.orm import Session
 
@@ -21,7 +21,11 @@ async def lifespan(app: FastAPI):
     :param app:
     :return:
     """
-    print("Application startup: Creating database tables...")
+    print("Application starting: Enabling pgvector extenstion...")
+    # enable the pgvector extension first
+    database.enable_pgvector_extension()
+
+    print("Creating database tables...")
     # Create database tables
     models.Base.metadata.create_all(bind=database.engine)
     yield
@@ -98,7 +102,7 @@ async def audio_processor(websocket: WebSocket, queue: asyncio.Queue, user: dict
                         continue # skip if user not found in db
 
                     # 2. Find the most similar question the user has pre-configured
-                    similar_question = crud.find_similar_questions(db, query_text=transcript, user_id=db_user.id)
+                    similar_question = crud.find_similar_question(db, query_text=transcript, user_id=db_user.id)
 
                     # 3. Get the user's general preferences
                     preferences = crud.get_user_preferences(db, user_id=db_user.id)
@@ -107,7 +111,7 @@ async def audio_processor(websocket: WebSocket, queue: asyncio.Queue, user: dict
                     print("Getting personalized suggestions...")
                     suggestions_text = get_response_suggestions(
                         transcript=transcript,
-                        similar_questions=similar_question,
+                        similar_question=similar_question,
                         preferences=preferences,
                     )
 
@@ -129,16 +133,37 @@ async def audio_processor(websocket: WebSocket, queue: asyncio.Queue, user: dict
     finally:
         print("Stopped processing audio.")
 
-async def get_current_user(token: str = Query(...)):
-    """
-    Dependency to verify the Firebase token from a query parameter.
 
-    :param token:
-    :return:
+async def get_current_user(
+        authorization: str | None = Header(None),
+        token_from_query: str | None = Query(None, alias="token")
+):
     """
+    Dependency to verify a Firebase token from either the Authorization header
+    (for HTTP requests) or a query parameter (for WebSocket connections).
+    """
+    token = None
+    if authorization and authorization.startswith("Bearer "):
+        # Extract token from "Bearer <token>" header
+        token = authorization.split("Bearer ")[1]
+    elif token_from_query:
+        # Use token from query parameter
+        token = token_from_query
+
+    if not token:
+        raise HTTPException(
+            status_code=401,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     user = verify_firebase_token(token)
     if not user:
-        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     return user
 
 
@@ -180,6 +205,7 @@ def create_preference(
 ):
     """
     Create a new preference for the currently authenticated user.
+    If the user doesn't exist in the local DB, create them first.
 
     :param preference:
     :param db:
@@ -189,8 +215,14 @@ def create_preference(
 
     firebase_user_email = current_user.get("email")
     db_user = crud.get_user_by_email(db, email=firebase_user_email)
+
     if db_user is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        user_to_create = schemas.UserCreate(
+            email=firebase_user_email,
+            username=current_user.get("name") or firebase_user_email,
+            password="firebase_user_placeholder"
+        )
+        db_user = crud.create_user(db=db, user=user_to_create)
 
     return crud.create_user_preference(db=db, preference=preference, user_id=db_user.id)
 
@@ -227,14 +259,25 @@ def create_scenario(
 ):
     """
     Create a new scenario for the currently authenticated user.
+    If the user doesn't exist in the local DB, create them first.
 
     :param scenario:
     :param db:
     :param current_user:
     :return:
     """
+    firebase_user_email = current_user.get("email")
+    db_user = crud.get_user_by_email(db, email=firebase_user_email)
 
-    db_user = crud.get_user_by_email(db, email=current_user.get("email"))
+    # if user doesn't exist in our DB, create them now
+    if db_user is None:
+        user_to_create = schemas.UserCreate(
+            email=firebase_user_email,
+            username=current_user.get("username") or firebase_user_email,
+            password= "firebase_user_password",
+        )
+        db_user = crud.create_user(db=db, user=user_to_create)
+
 
     # Check if a scenario with this name already exists for this user
     existing_scenario = crud.get_scenario_by_name(db, name=scenario.name, user_id=db_user.id)
