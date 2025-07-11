@@ -185,7 +185,7 @@ def get_scenario_by_name(db: Session, name: str, user_id: uuid.UUID) -> models.S
         models.Scenario.user_id == user_id
     ).first()
 
-def get_scenario_by_user(db: Session, user_id: uuid.UUID) -> list[models.Scenario]:
+def get_scenarios_by_user(db: Session, user_id: uuid.UUID) -> list[models.Scenario]:
     """
     Retrieves all scenarios owned by a specific user.
 

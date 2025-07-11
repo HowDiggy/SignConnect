@@ -1,0 +1,76 @@
+import uuid
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from .. import crud, schemas
+from ..db.database import get_db
+from ..main import get_current_user # We import the dependency from main
+
+# Create a new router object
+router = APIRouter(
+    prefix="/users/me/scenarios",
+    tags=["scenarios"],
+)
+
+@router.get("/", response_model=list[schemas.Scenario])
+def read_scenarios_for_user(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """Retreive all scenarios for current user."""
+
+    db_user = crud.get_user_by_email(db, email=current_user.get("email"))
+    if not db_user:
+        return []
+    return crud.get_scenarios_by_user(db, user_id=db_user.id)
+
+@router.post("/", response_model=schemas.Scenario)
+def create_scenario(
+    scenario: schemas.ScenarioCreate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Create a new scenario for the currently authenticated user.
+    If the user doesn't exist in the local DB, create them first.
+    """
+    firebase_user_email = current_user.get("email")
+    db_user = crud.get_user_by_email(db, email=firebase_user_email)
+
+    # if user doesn't exist in DB, create them now
+    if db_user is None:
+        user_to_create = schemas.UserCreate(
+            email=firebase_user_email,
+            username=current_user.get("name") or firebase_user_email,
+            password="firebase_user_placeholder",
+        )
+        db_user = crud.create_user(db=db, user=user_to_create)
+
+    # check if a scenario with this name already exists for this user
+    existing_scenario = crud.get_scenario_by_name(db, name=scenario.name, user_id=db_user.id)
+    if existing_scenario:
+        raise HTTPException(status_code=400, detail="A scenario with this name already exists.")
+
+    return crud.create_scenario(db=db, scenario=scenario, user_id=db_user.id)
+
+@router.post("/{scenario_id}/questions/", response_model=schemas.ScenarioQuestion)
+def create_scenario_question(
+    scenario_id: uuid.UUID,
+    question: schemas.ScenarioQuestionCreate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Create a new pre-configured question for one of the user's scenarios, ensuring the user owns the parent scenario.
+    """
+    db_user = crud.get_user_by_email(db, email=current_user.get("email"))
+
+    # get scenario from DB
+    db_scenario = crud.get_scenario(db, scenario_id=scenario_id)
+
+    # security check: ensure the scenario exists and belongs to current user
+    if db_scenario is None:
+        raise HTTPException(status_code=404, detail="Scenario not found")
+    if db_scenario.user_id != db_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to add questions to this scenario.")
+    return crud.create_scenario_question(db=db, question=question, scenario_id=scenario_id)
