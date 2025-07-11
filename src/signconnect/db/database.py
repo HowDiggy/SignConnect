@@ -1,5 +1,5 @@
 # src/signconnect/db/database.py
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -30,3 +30,12 @@ def get_db():
         yield db
     finally:
         db.close()
+
+def enable_pgvector_extension():
+    """
+    Enables the pgvector extension in the database.
+    This must be run before creating tables with Vector columns.
+    """
+    with engine.connect() as conn:
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
+        conn.commit()

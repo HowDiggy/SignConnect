@@ -4,14 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SignConnect</title>
+    <style>
+        /* Simple styling for better layout */
+        body { font-family: sans-serif; }
+        .hidden { display: none; }
+        #management-container, #transcription-container { border: 1px solid #ccc; padding: 10px; margin-top: 10px; }
+        input, button { margin: 5px; }
+    </style>
 </head>
 <body>
 
     <h1>SignConnect</h1>
 
-    <div id="user-info-container" style="display:none;">
+    <div id="user-info-container" class="hidden">
         <p><strong>User Status:</strong> <span id="user-status"></span></p>
         <button id="logout-btn">Log Out</button>
+        <button id="toggle-view-btn">Manage Scenarios</button>
     </div>
 
     <div id="auth-container">
@@ -24,17 +32,30 @@
 
     <hr>
 
-    <div id="transcription-container" style="display:none;">
+    <div id="transcription-container" class="hidden">
         <h2>Transcription</h2>
         <button id="start-btn">Start Transcription</button>
         <p><strong>Connection Status:</strong> <span id="status">Idle</span></p>
-        <div id="transcription-display">
-            </div>
+        <div id="transcription-display"></div>
         <h2>Suggestions:</h2>
-        <div id="suggestions-container">
-            </div>
+        <div id="suggestions-container"></div>
     </div>
 
+    <div id="management-container" class="hidden">
+        <h2>Manage Scenarios & Preferences</h2>
+
+        <div id="add-scenario-form">
+            <h3>Add New Scenario</h3>
+            <input type="text" id="scenario-name" placeholder="Scenario Name (e.g., Restaurant)">
+            <button id="add-scenario-btn">Add Scenario</button>
+        </div>
+
+        <hr>
+
+        <div id="scenarios-list">
+            <h3>Your Scenarios</h3>
+            </div>
+    </div>
 
     <script type="module">
       // Import the functions you need from the SDKs you need

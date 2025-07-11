@@ -1,21 +1,29 @@
 document.addEventListener("DOMContentLoaded", () => {
-    // Get references to all UI elements, including the new container
+    // Get all DOM elements
     const emailInput = document.getElementById("email");
     const passwordInput = document.getElementById("password");
     const signUpBtn = document.getElementById("signup-btn");
     const logInBtn = document.getElementById("login-btn");
     const logOutBtn = document.getElementById("logout-btn");
     const userStatus = document.getElementById("user-status");
+    const toggleViewBtn = document.getElementById("toggle-view-btn");
 
     const authContainer = document.getElementById("auth-container");
     const userInfoContainer = document.getElementById("user-info-container");
     const transcriptionContainer = document.getElementById("transcription-container");
+    const managementContainer = document.getElementById("management-container");
+
 
     const startBtn = document.getElementById("start-btn");
     const statusDisplay = document.getElementById("status");
     const transcriptionDisplay = document.getElementById("transcription-display");
     const suggestionsContainer = document.getElementById("suggestions-container");
 
+    const scenarioNameInput = document.getElementById("scenario-name");
+    const addScenarioBtn = document.getElementById("add-scenario-btn");
+    const scenariosListDiv = document.getElementById("suggestions-container");
+
+    // --- Firebase and State Variables
     const { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } = window.firebaseAuth;
     const auth = getAuth(window.firebaseApp);
 
@@ -35,7 +43,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 // Hide login form, show user info and transcription sections
                 authContainer.style.display = "none";
                 userInfoContainer.style.display = "block";
-                transcriptionContainer.style.display = "block";
+                transcriptionContainer.style.display = "block";    // Show transcription view by default
+                managementContainer.style.display = "none";
             });
         } else {
             // User is signed out, update UI accordingly
@@ -45,6 +54,7 @@ document.addEventListener("DOMContentLoaded", () => {
             authContainer.style.display = "block";
             userInfoContainer.style.display = "none";
             transcriptionContainer.style.display = "none";
+            managementContainer.style.display = "none";
         }
     });
 
@@ -76,6 +86,63 @@ document.addEventListener("DOMContentLoaded", () => {
 
     logOutBtn.addEventListener("click", () => {
         signOut(auth).catch(error => console.error("Logout error:", error));
+    });
+
+    // --- View Toggling Logic ---
+
+    toggleViewBtn.addEventListener("click", () => {
+        const isManagementView = managementContainer.style.display === "block";
+        if (isManagementView) {
+            managementContainer.style.display = "none";
+            transcriptionContainer.style.display = "block";
+            toggleViewBtn.textContent = "Manage Scenarios";
+        } else {
+            managementContainer.style.display = "block";
+            transcriptionContainer.style.display = "none";
+            toggleViewBtn.textContent = "Back to Transcription";
+            // Fetch and display scenarios when switching to this view
+            fetchAndDisplayScenarios();
+        }
+    });
+
+    // --- Scenario Management Logic ---
+
+    async function fetchAndDisplayScenarios() {
+        if (!currentUserToken) return;
+        // NOTE: In the future, this will fetch scenarios. For now, it's a placeholder.
+        scenariosListDiv.innerHTML = "<p>Scenario display coming soon.</p>";
+    }
+
+    addScenarioBtn.addEventListener("click", async () => {
+        const scenarioName = scenarioNameInput.value;
+        if (!scenarioName.trim() || !currentUserToken) {
+            alert("Please enter a scenario name or log in.");
+            return;
+        }
+
+        try {
+            const response = await fetch("/scenarios/", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${currentUserToken}`
+                },
+                body: JSON.stringify({ name: scenarioName, description: "" })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || "Failed to create scenario");
+            }
+
+            scenarioNameInput.value = ""; // Clear input
+            fetchAndDisplayScenarios(); // Refresh the list
+            alert("Scenario created successfully!");
+
+        } catch (error) {
+            console.error("Error creating scenario:", error);
+            alert(error.message);
+        }
     });
 
     // --- Transcription Logic ---
