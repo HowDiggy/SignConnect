@@ -15,6 +15,7 @@ from contextlib import asynccontextmanager
 from .llm.client import get_response_suggestions
 from .firebase import verify_firebase_token
 
+from .routers import scenarios
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
