@@ -7,6 +7,7 @@ import uuid
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, Query, Header
 from google.cloud import speech
 from sqlalchemy.orm import Session
+from fastapi.middleware.cors import CORSMiddleware
 
 from . import crud, schemas
 from .db import database, models
@@ -15,7 +16,7 @@ from contextlib import asynccontextmanager
 from .llm.client import get_response_suggestions
 from .firebase import verify_firebase_token
 
-from .routers import scenarios
+from .routers import users, scenarios
 from .dependencies import get_current_user
 
 
@@ -37,6 +38,9 @@ async def lifespan(app: FastAPI):
     # Tell the main app to use the new router
     print("Including scenarios router...")
     app.include_router(scenarios.router)
+    # tell the main app to use the users router
+    print("Including users router...")
+    app.include_router(users.router)
 
     # --- NEW DEBUGGING STEP ---
     print("\n--- Registered Routes ---")
@@ -55,6 +59,22 @@ app = FastAPI(
     version="0.1.0"
 )
 
+# --- ADD THIS CORS MIDDLEWARE CONFIGURATION ---
+# This allows your frontend (running on port 63342) to communicate with your backend.
+origins = [
+    "http://localhost",
+    "http://localhost:63342", # The origin for your IDE's dev server
+    "http://127.0.0.1:63342",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"], # Allows all methods (GET, POST, etc.)
+    allow_headers=["*"], # Allows all headers
+)
+# ---------------------------------------------
 
 # --- WebSocket Transcription Logic ---
 
@@ -176,59 +196,4 @@ async def websocket_endpoint(
         task.cancel()
     print("WebSocket connection closed.")
 
-# --- User Endpoints ---
 
-
-# --- Preference Endpoints ---
-@app.post("/users/me/preferences/", response_model=schemas.UserPreference)
-def create_preference(
-        preference: schemas.UserPreferenceCreate,
-        db: Session = Depends(get_db),
-        current_user: dict = Depends(get_current_user),
-):
-    """
-    Create a new preference for the currently authenticated user.
-    If the user doesn't exist in the local DB, create them first.
-
-    :param preference:
-    :param db:
-    :param current_user:
-    :return:
-    """
-
-    firebase_user_email = current_user.get("email")
-    db_user = crud.get_user_by_email(db, email=firebase_user_email)
-
-    if db_user is None:
-        user_to_create = schemas.UserCreate(
-            email=firebase_user_email,
-            username=current_user.get("name") or firebase_user_email,
-            password="firebase_user_placeholder"
-        )
-        db_user = crud.create_user(db=db, user=user_to_create)
-
-    return crud.create_user_preference(db=db, preference=preference, user_id=db_user.id)
-
-@app.get("/users/me/preferences/", response_model=list[schemas.UserPreference])
-def read_user_preferences(
-        skip: int = 0,
-        limit: int = 100,
-        db: Session = Depends(get_db),
-        current_user: dict = Depends(get_current_user),
-):
-    """
-    Retrieve all preferences for currently authenticated user.
-    
-    :param skip: 
-    :param limit: 
-    :param db: 
-    :param current_user: 
-    :return: 
-    """
-    firebase_user_email = current_user.get("email")
-    db_user = crud.get_user_by_email(db, email=firebase_user_email)
-    if db_user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    preferences = crud.get_user_preferences(db, user_id=db_user.id, skip=skip, limit=limit)
-    return preferences

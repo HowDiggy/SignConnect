@@ -112,7 +112,7 @@ async function fetchAndDisplayScenarios() {
 
     try {
         // This URL MUST match the path in your router file
-        const response = await fetch("/users/me/scenarios/", {
+        const response = await fetch("http://localhost:8000/users/me/scenarios/", {
             method: "GET",
             headers: {
                 "Authorization": `Bearer ${currentUserToken}`
@@ -172,7 +172,7 @@ async function fetchAndDisplayScenarios() {
         }
 
         try {
-            const response = await fetch(`/users/me/scenarios/${scenarioId}/questions/`, {
+            const response = await fetch(`"http://localhost:8000/users/me/scenarios/"${scenarioId}/questions/`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -202,7 +202,7 @@ async function fetchAndDisplayScenarios() {
         }
 
         try {
-            const response = await fetch("/users/me/scenarios/", {
+            const response = await fetch("http://localhost:8000/users/me/scenarios/", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
