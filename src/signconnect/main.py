@@ -16,7 +16,7 @@ from contextlib import asynccontextmanager
 from .llm.client import get_response_suggestions
 from .firebase import verify_firebase_token
 
-from .routers import users, scenarios
+from .routers import users, scenarios, questions
 from .dependencies import get_current_user
 
 
@@ -41,6 +41,9 @@ async def lifespan(app: FastAPI):
     # tell the main app to use the users router
     print("Including users router...")
     app.include_router(users.router)
+    # tell the main app to use the questions router
+    print("Including questions router...")
+    app.include_router(questions.router)
 
     # --- NEW DEBUGGING STEP ---
     print("\n--- Registered Routes ---")

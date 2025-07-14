@@ -142,7 +142,11 @@ async function fetchAndDisplayScenarios() {
                 </div>
                 <p>${scenario.description || 'No Description'}</p>
                 <ul>
-                    ${scenario.questions.map(q => `<li><b>Q:</b> ${q.question_text} <br> <b>A:</b> ${q.user_answer_text}</li>`).join('')}
+                    ${scenario.questions.map(q => `
+                        <li>
+                            <span><b>Q:</b> ${q.question_text} <br> <b>A:</b> ${q.user_answer_text}</span>
+                            <button class="delete-question-btn" data-question-id="${q.id}">Delete Q</button>
+                        </li>`).join('')}
                 </ul>
                 <div class="add-question-form">
                     <input type="text" placeholder="Question" class="scenario-question-text">
@@ -153,9 +157,15 @@ async function fetchAndDisplayScenarios() {
             scenariosListDiv.appendChild(scenarioDiv);
         });
 
+
+
         document.querySelectorAll('.delete-scenario-btn').forEach(button => {
             button.addEventListener('click', deleteScenario);
-        })
+        });
+
+        document.querySelectorAll('.delete-question-btn').forEach(button => {
+            button.addEventListener('click', deleteQuestion);
+        });
 
         document.querySelectorAll('.add-question-btn').forEach(button => {
             button.addEventListener('click', addQuestionToScenario);
@@ -196,6 +206,36 @@ async function fetchAndDisplayScenarios() {
             alert(error.message);
         }
     }
+
+    async function deleteQuestion(event) {
+    const questionId = event.target.dataset.questionId;
+
+    if (!confirm("Are you sure you want to delete this question?")) {
+        return;
+    }
+
+    try {
+        // NOTE: This endpoint doesn't exist yet. We will create it next.
+        const response = await fetch(`http://localhost:8000/users/me/questions/${questionId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${currentUserToken}`
+            }
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Failed to delete question.');
+        }
+
+        // Refresh the scenarios list to show the question has been removed
+        fetchAndDisplayScenarios();
+
+    } catch (error) {
+        console.error('Error deleting question:', error);
+        alert(error.message);
+    }
+}
 
     async function addQuestionToScenario(event) {
         const button = event.target;

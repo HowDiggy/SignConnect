@@ -210,3 +210,30 @@ def delete_scenario_by_id(db: Session, *, scenario_id: uuid.UUID, user_id: uuid.
     db.commit()
 
     return scenario_to_delete
+
+def delete_question_by_id(db: Session, *, question_id: uuid.UUID, user_id: uuid.UUID) -> models.ScenarioQuestion | None:
+    """
+    Deletes a ScenarioQuestion by its ID.
+
+    Ensures that the question belongs to a scenario owned by the specified user
+    to prevent unauthorized deletions.
+    """
+    # Query for the question and join with the scenario to check the owner
+    question_to_delete = (
+        db.query(models.ScenarioQuestion)
+        .join(models.Scenario, models.ScenarioQuestion.scenario_id == models.Scenario.id)
+        .filter(
+            models.ScenarioQuestion.id == question_id,
+            models.Scenario.user_id == user_id
+        )
+        .first()
+    )
+
+    if not question_to_delete:
+        # The question does not exist or does not belong to the user
+        return None
+
+    db.delete(question_to_delete)
+    db.commit()
+
+    return question_to_delete
