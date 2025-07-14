@@ -1,3 +1,5 @@
+from starlette import status
+
 print("--- SCENARIOS ROUTER FILE IS BEING IMPORTED ---")
 
 import uuid
@@ -93,3 +95,37 @@ def create_scenario_question(
     if db_scenario.user_id != db_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to add questions to this scenario.")
     return crud.create_scenario_question(db=db, question=question, scenario_id=scenario_id)
+
+@router.delete(
+    "/{scenario_id}",
+    response_model=schemas.Scenario,
+    status_code=status.HTTP_200_OK,
+    summary="Delete a specific scenario for the current user from the database.",
+)
+def delete_scenario(
+        scenario_id: uuid.UUID,
+        *,
+        db: Session = Depends(get_db),
+        current_user: dict = Depends(get_current_user),
+):
+    """
+    Delete a scenario by its ID.
+    The scenario must belong to the currently authenticated user.
+    """
+    # Get the user from the database based on the Firebase token
+    db_user = crud.get_user_by_email(db, email=current_user.get("email"))
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Call the new CRUD function to delete the scenario
+    deleted_scenario = crud.delete_scenario_by_id(db=db, scenario_id=scenario_id, user_id=db_user.id)
+
+    # If the CRUD function returned None, it means the scenario wasn't found
+    # or didn't belong to the user.
+    if deleted_scenario is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Scenario with ID {scenario_id} not found or you do not have permission to delete it."
+        )
+
+    return deleted_scenario

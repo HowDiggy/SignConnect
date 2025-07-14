@@ -21,7 +21,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const scenarioNameInput = document.getElementById("scenario-name");
     const addScenarioBtn = document.getElementById("add-scenario-btn");
-    const scenariosListDiv = document.getElementById("suggestions-container");
+    const scenariosListDiv = document.getElementById("scenarios-list");
 
     // --- Firebase and State Variables
     const { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } = window.firebaseAuth;
@@ -136,7 +136,11 @@ async function fetchAndDisplayScenarios() {
             const scenarioDiv = document.createElement("div");
             scenarioDiv.className = "scenario-item";
             scenarioDiv.innerHTML = `
-                <h4>${scenario.name}</h4>
+                <div class="scenario-header">
+                    <h4>${scenario.name}</h4>
+                    <button class="delete-scenario-btn" data-scenario-id="${scenario.id}">Delete</button>
+                </div>
+                <p>${scenario.description || 'No Description'}</p>
                 <ul>
                     ${scenario.questions.map(q => `<li><b>Q:</b> ${q.question_text} <br> <b>A:</b> ${q.user_answer_text}</li>`).join('')}
                 </ul>
@@ -149,15 +153,49 @@ async function fetchAndDisplayScenarios() {
             scenariosListDiv.appendChild(scenarioDiv);
         });
 
+        document.querySelectorAll('.delete-scenario-btn').forEach(button => {
+            button.addEventListener('click', deleteScenario);
+        })
+
         document.querySelectorAll('.add-question-btn').forEach(button => {
             button.addEventListener('click', addQuestionToScenario);
         });
 
     } catch (error) {
         console.error("Error fetching scenarios:", error);
-        scenariosListDiv.innerHTML = "<p>Could not load scenarios.</p>";
+        scenariosListDiv.innerHTML += `<p style="color:red;">Error: ${error.message}</p>`;
     }
 }
+
+        async function deleteScenario(event) {
+        const scenarioId = event.target.dataset.scenarioId;
+
+        // Confirm with the user before deleting
+        if (!confirm("Are you sure you want to delete this scenario and all its questions?")) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`http://localhost:8000/users/me/scenarios/${scenarioId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${currentUserToken}`
+                }
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to delete scenario.');
+            }
+
+            // Refresh the list of scenarios to show the change
+            fetchAndDisplayScenarios();
+
+        } catch (error) {
+            console.error('Error deleting scenario:', error);
+            alert(error.message);
+        }
+    }
 
     async function addQuestionToScenario(event) {
         const button = event.target;
@@ -172,7 +210,7 @@ async function fetchAndDisplayScenarios() {
         }
 
         try {
-            const response = await fetch(`"http://localhost:8000/users/me/scenarios/"${scenarioId}/questions/`, {
+            const response = await fetch(`http://localhost:8000/users/me/scenarios/${scenarioId}/questions/`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -194,7 +232,8 @@ async function fetchAndDisplayScenarios() {
         }
     }
 
-    addScenarioBtn.addEventListener("click", async () => {
+    addScenarioBtn.addEventListener("click", async (event) => {
+        event.preventDefault(); // Prevent from submission
         const scenarioName = scenarioNameInput.value;
         if (!scenarioName.trim() || !currentUserToken) {
             alert("Please enter a scenario name or log in.");

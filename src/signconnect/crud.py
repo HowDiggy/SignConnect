@@ -2,7 +2,7 @@ import uuid
 from sqlalchemy.orm import Session
 from sentence_transformers import SentenceTransformer
 from .db import models
-from . import  schemas
+from . import schemas, db
 
 # ---- Model for Sentence Transformers ----
 # Load the model once the application starts.
@@ -195,3 +195,18 @@ def get_scenarios_by_user(db: Session, user_id: uuid.UUID) -> list[models.Scenar
     """
 
     return db.query(models.Scenario).filter(models.Scenario.user_id == user_id).all()
+
+def delete_scenario_by_id(db: Session, *, scenario_id: uuid.UUID, user_id: uuid.UUID) -> models.Scenario | None:
+    """
+    Deletes a scenario by its ID, but only if it belongs to the specified user.
+    """
+    # This logic remains the same
+    scenario_to_delete = db.query(models.Scenario).filter(models.Scenario.id == scenario_id).first()
+
+    if not scenario_to_delete or scenario_to_delete.user_id != user_id:
+        return None
+
+    db.delete(scenario_to_delete)
+    db.commit()
+
+    return scenario_to_delete

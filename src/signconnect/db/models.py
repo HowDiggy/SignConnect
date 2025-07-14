@@ -82,7 +82,11 @@ class Scenario(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
 
     owner = relationship("User", back_populates="scenarios")
-    questions = relationship("ScenarioQuestion", back_populates="scenario")
+    questions = relationship(
+        "ScenarioQuestion",
+        back_populates="scenario",
+        cascade="all, delete-orphan",
+    )
 
 
 class ScenarioQuestion(Base):
