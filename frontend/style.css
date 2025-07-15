@@ -1,0 +1,36 @@
+/* Simple styling for better layout */
+body {
+    font-family: sans-serif;
+}
+
+.hidden {
+    display: none;
+}
+
+#management-container, #transcription-container {
+    border: 1px solid #ccc;
+    padding: 10px;
+    margin-top: 10px;
+}
+
+input, button {
+    margin: 5px;
+}
+
+.scenario-item li .edit-form,
+.scenario-item li .save-question-btn,
+.scenario-item li .cancel-edit-btn {
+    display: none; /* Hide edit inputs and save/cancel buttons by default */
+}
+
+.scenario-item li.editing .edit-form,
+.scenario-item li.editing .save-question-btn,
+.scenario-item li.editing .cancel-edit-btn {
+    display: block; /* Show them when the li has the .editing class */
+}
+
+.scenario-item li.editing .qa-text,
+.scenario-item li.editing .edit-question-btn,
+.scenario-item li.editing .delete-question-btn {
+    display: none; /* Hide the static text and edit/delete buttons */
+}

@@ -159,6 +159,45 @@ def find_similar_question(db: Session, query_text: str, user_id: uuid.UUID) -> m
     )
     return similar_question
 
+def update_question(
+    db: Session,
+    *,
+    question_id: uuid.UUID,
+    user_id: uuid.UUID,
+    question_update: schemas.ScenarioQuestionUpdate
+) -> models.ScenarioQuestion | None:
+    """
+    Updates a ScenarioQuestion.
+
+    Ensures the question belongs to the current user before applying updates.
+    """
+    # First, verify ownership
+    db_question = (
+        db.query(models.ScenarioQuestion)
+        .join(models.Scenario, models.ScenarioQuestion.scenario_id == models.Scenario.id)
+        .filter(
+            models.ScenarioQuestion.id == question_id,
+            models.Scenario.user_id == user_id
+        )
+        .first()
+    )
+
+    if not db_question:
+        return None
+
+    # Get the update data from the schema
+    update_data = question_update.model_dump(exclude_unset=True)
+
+    # Update the model instance
+    for key, value in update_data.items():
+        setattr(db_question, key, value)
+
+    db.add(db_question)
+    db.commit()
+    db.refresh(db_question)
+
+    return db_question
+
 # --- helper functions for security and data integrity of endpoints ---
 def get_scenario(db: Session, scenario_id: uuid.UUID) -> models.Scenario | None:
     """

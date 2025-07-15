@@ -17,6 +17,10 @@ class ScenarioQuestion(ScenarioQuestionBase):
     scenario_id: uuid.UUID
     model_config = ConfigDict(from_attributes=True)
 
+class ScenarioQuestionUpdate(BaseModel):
+    question_text: Optional[str] = None
+    user_answer_text: Optional[str] = None
+
 
 # --- Scenario Schemas ---
 class ScenarioBase(BaseModel):
