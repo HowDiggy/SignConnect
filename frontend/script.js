@@ -23,6 +23,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const addScenarioBtn = document.getElementById("add-scenario-btn");
     const scenariosListDiv = document.getElementById("scenarios-list");
 
+    const addPreferenceBtn = document.getElementById("add-preference-btn");
+
     // --- Firebase and State Variables
     const { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } = window.firebaseAuth;
     const auth = getAuth(window.firebaseApp);
@@ -89,18 +91,23 @@ document.addEventListener("DOMContentLoaded", () => {
             transcriptionContainer.style.display = "none";
             toggleViewBtn.textContent = "Back to Transcription";
             fetchAndDisplayScenarios();
+            fetchAndDisplayPreferences();
         }
     });
 
     // --- SCENARIO MANAGEMENT ---
 
     function attachEventListeners() {
+        document.querySelectorAll('.edit-scenario-btn').forEach(b => b.addEventListener('click', toggleScenarioEditMode));
+        document.querySelectorAll('.save-scenario-btn').forEach(b => b.addEventListener('click', updateScenario));
+        document.querySelectorAll('.cancel-scenario-edit-btn').forEach(b => b.addEventListener('click', toggleScenarioEditMode));
         document.querySelectorAll('.delete-scenario-btn').forEach(b => b.addEventListener('click', deleteScenario));
         document.querySelectorAll('.add-question-btn').forEach(b => b.addEventListener('click', addQuestionToScenario));
         document.querySelectorAll('.delete-question-btn').forEach(b => b.addEventListener('click', deleteQuestion));
         document.querySelectorAll('.edit-question-btn').forEach(b => b.addEventListener('click', toggleQuestionEditMode));
         document.querySelectorAll('.cancel-edit-btn').forEach(b => b.addEventListener('click', toggleQuestionEditMode));
         document.querySelectorAll('.save-question-btn').forEach(b => b.addEventListener('click', updateQuestion));
+        addPreferenceBtn.addEventListener('click', addPreference);
     }
 
     async function fetchAndDisplayScenarios() {
@@ -123,9 +130,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 const scenarioDiv = document.createElement("div");
                 scenarioDiv.className = "scenario-item";
                 scenarioDiv.innerHTML = `
-                    <div class="scenario-header">
+                    <div class="scenario-header" data-scenario-id="${scenario.id}">
                         <h4>${scenario.name}</h4>
-                        <button class="delete-scenario-btn" data-scenario-id="${scenario.id}">Delete Scenario</button>
+                        <div class="edit-form">
+                            <input type="text" class="edit-scenario-name-input" value="${scenario.name}">
+                        </div>
+                        <button class="edit-scenario-btn">Edit Name</button>
+                        <button class="save-scenario-btn">Save</button>
+                        <button class="cancel-scenario-edit-btn">Cancel</button>
+                        <button class="delete-scenario-btn">Delete Scenario</button>
                     </div>
                     <p>${scenario.description || 'No description'}</p>
                     <ul>
@@ -159,10 +172,46 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    function toggleScenarioEditMode(event) {
+        const headerDiv = event.target.closest('.scenario-header');
+        if (headerDiv) {
+            headerDiv.classList.toggle('editing');
+        }
+    }
+
     function toggleQuestionEditMode(event) {
         const questionLi = event.target.closest('li');
         if (questionLi) {
             questionLi.classList.toggle('editing');
+        }
+    }
+
+    async function updateScenario(event) {
+        const headerDiv = event.target.closest('.scenario-header');
+        const scenarioId = headerDiv.dataset.scenarioId;
+        const newName = headerDiv.querySelector('.edit-scenario-name-input').value;
+
+        if (!newName.trim()) {
+            alert("Scenario name cannot be empty.");
+            return;
+        }
+
+        try {
+            const response = await fetch(`http://localhost:8000/users/me/scenarios/${scenarioId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${currentUserToken}`
+                },
+                body: JSON.stringify({ name: newName })
+            });
+
+            if (!response.ok) throw new Error((await response.json()).detail || 'Failed to update scenario.');
+
+            fetchAndDisplayScenarios();
+        } catch (error) {
+            console.error('Error updating scenario:', error);
+            alert(error.message);
         }
     }
 
@@ -187,7 +236,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (!response.ok) throw new Error((await response.json()).detail || 'Failed to update question.');
 
-            fetchAndDisplayScenarios(); // Refresh the list to show changes
+            fetchAndDisplayScenarios();
         } catch (error) {
             console.error('Error updating question:', error);
             alert(error.message);
@@ -195,7 +244,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     async function deleteScenario(event) {
-        const scenarioId = event.target.dataset.scenarioId;
+        const scenarioId = event.target.closest('.scenario-header').dataset.scenarioId;
         if (!confirm("Delete this scenario and all its questions?")) return;
         try {
             const response = await fetch(`http://localhost:8000/users/me/scenarios/${scenarioId}`, {
@@ -211,7 +260,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     async function deleteQuestion(event) {
-        const questionId = event.target.dataset.questionId;
+        const questionId = event.target.closest('li').dataset.questionId;
         if (!confirm("Delete this question?")) return;
         try {
             const response = await fetch(`http://localhost:8000/users/me/questions/${questionId}`, {
@@ -279,6 +328,112 @@ document.addEventListener("DOMContentLoaded", () => {
             alert(error.message);
         }
     });
+
+    // --- Preferences Section ---
+
+    async function fetchAndDisplayPreferences() {
+        if (!currentUserToken) return;
+        const preferencesListDiv = document.getElementById('preferences-list');
+
+        try {
+            const response = await fetch("http://localhost:8000/users/me/preferences/", {
+                headers: { 'Authorization': `Bearer ${currentUserToken}` }
+            });
+            if (!response.ok) throw new Error((await response.json()).detail || "Failed to fetch preferences");
+
+            const preferences = await response.json();
+            preferencesListDiv.innerHTML = ''; // Clear old list
+            const ul = document.createElement('ul');
+
+            if (preferences.length > 0) {
+                preferences.forEach(pref => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `
+                        <span><strong>${pref.category}:</strong> ${pref.preference_text}</span>
+                        <button class="delete-preference-btn" data-preference-id="${pref.id}">Delete</button>
+                    `;
+                    ul.appendChild(li);
+                });
+            }
+            preferencesListDiv.appendChild(ul);
+
+            document.querySelectorAll('.delete-preference-btn').forEach(btn => {
+                btn.addEventListener('click', deletePreference);
+            });
+
+        } catch (error) {
+            console.error("Error fetching preferences:", error);
+            preferencesListDiv.innerHTML = `<p style="color:red;">${error.message}</p>`;
+        }
+    }
+
+    async function addPreference(event) {
+        event.preventDefault();
+        const keyInput = document.getElementById('preference-key');
+        const valueInput = document.getElementById('preference-value');
+        const key = keyInput.value.trim();
+        const value = valueInput.value.trim();
+
+        if (!key || !value) {
+            alert("Please provide both a key and a value for the preference.");
+            return;
+        }
+
+        try {
+            const response = await fetch("http://localhost:8000/users/me/preferences/", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${currentUserToken}`
+                },
+                // --- THIS IS THE FIX ---
+                // Change the keys to 'category' and 'preference_text' to match the backend schema
+                body: JSON.stringify({ category: key, preference_text: value })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                // This creates a more readable error message from the backend's response
+                const errorMessage = errorData.detail?.[0]?.msg || errorData.detail || "Failed to add preference";
+                throw new Error(errorMessage);
+            }
+
+            keyInput.value = ''; // Clear inputs
+            valueInput.value = '';
+            fetchAndDisplayPreferences(); // Refresh the list
+
+        } catch (error) {
+            console.error("Error adding preference:", error);
+            alert(error.message);
+        }
+    }
+
+    async function deletePreference(event) {
+        const preferenceId = event.target.dataset.preferenceId;
+        if (!confirm("Are you sure you want to delete this preference?")) return;
+
+        try {
+            const response = await fetch(`http://localhost:8000/users/me/preferences/${preferenceId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${currentUserToken}`
+                }
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to delete preference.');
+            }
+
+            // Refresh the list to show the change
+            fetchAndDisplayPreferences();
+
+        } catch (error) {
+            console.error('Error deleting preference:', error);
+            alert(error.message);
+        }
+    }
+
 
     // --- Transcription Logic ---
 

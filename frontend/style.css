@@ -34,3 +34,36 @@ input, button {
 .scenario-item li.editing .delete-question-btn {
     display: none; /* Hide the static text and edit/delete buttons */
 }
+
+.scenario-header .edit-form,
+.scenario-header .save-scenario-btn,
+.scenario-header .cancel-scenario-edit-btn {
+    display: none; /* Hide the input and save/cancel buttons by default */
+}
+
+.scenario-header.editing .edit-form,
+.scenario-header.editing .save-scenario-btn,
+.scenario-header.editing .cancel-scenario-edit-btn {
+    display: inline-block; /* Show them when editing */
+}
+
+.scenario-header.editing h4,
+.scenario-header.editing .edit-scenario-btn,
+.scenario-header.editing .delete-scenario-btn {
+    display: none; /* Hide the title and original buttons when editing */
+}
+
+#preferences-list ul {
+    list-style: none;
+    padding: 0;
+}
+
+#preferences-list li {
+    background-color: #f9f9f9;
+    border: 1px solid #ddd;
+    padding: 8px;
+    margin-bottom: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}

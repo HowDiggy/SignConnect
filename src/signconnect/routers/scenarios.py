@@ -129,3 +129,38 @@ def delete_scenario(
         )
 
     return deleted_scenario
+
+# --- ADD THIS NEW ENDPOINT ---
+@router.put(
+    "/{scenario_id}",
+    response_model=schemas.Scenario,
+    summary="Update a specific scenario"
+)
+def update_scenario_endpoint(
+    scenario_id: uuid.UUID,
+    scenario_update: schemas.ScenarioUpdate, # Data from the request body
+    *,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Update a scenario's name or description.
+    """
+    db_user = crud.get_user_by_email(db, email=current_user.get("email"))
+    if not db_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    updated_scenario = crud.update_scenario(
+        db=db,
+        scenario_id=scenario_id,
+        user_id=db_user.id,
+        scenario_update=scenario_update
+    )
+
+    if updated_scenario is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Scenario with ID {scenario_id} not found or you do not have permission to edit it."
+        )
+
+    return updated_scenario

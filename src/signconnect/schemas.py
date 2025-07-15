@@ -21,6 +21,9 @@ class ScenarioQuestionUpdate(BaseModel):
     question_text: Optional[str] = None
     user_answer_text: Optional[str] = None
 
+class ScenarioUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
 
 # --- Scenario Schemas ---
 class ScenarioBase(BaseModel):

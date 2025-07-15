@@ -1,5 +1,7 @@
+import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from starlette import status
 
 from .. import crud, schemas
 from ..db.database import get_db
@@ -53,3 +55,36 @@ def read_user_preferences(
 
     preferences = crud.get_user_preferences(db, user_id=db_user.id, skip=skip, limit=limit)
     return preferences
+
+
+@router.delete(
+    "/preferences/{preference_id}",
+    response_model=schemas.UserPreference,
+    summary="Delete a specific preference"
+)
+def delete_preference_endpoint(
+        preference_id: uuid.UUID,
+        *,
+        db: Session = Depends(get_db),
+        current_user: dict = Depends(get_current_user),
+):
+    """
+    Delete a specific preference by its ID for the current user.
+    """
+    db_user = crud.get_user_by_email(db, email=current_user.get("email"))
+    if not db_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    deleted_preference = crud.delete_preference_by_id(
+        db=db,
+        preference_id=preference_id,
+        user_id=db_user.id
+    )
+
+    if deleted_preference is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Preference with ID {preference_id} not found or you do not have permission to delete it."
+        )
+
+    return deleted_preference

@@ -198,6 +198,62 @@ def update_question(
 
     return db_question
 
+def update_scenario(
+    db: Session,
+    *,
+    scenario_id: uuid.UUID,
+    user_id: uuid.UUID,
+    scenario_update: schemas.ScenarioUpdate
+) -> models.Scenario | None:
+    """
+    Updates a Scenario.
+
+    Ensures the scenario belongs to the current user before applying updates.
+    """
+    # Find the scenario and verify ownership in one query
+    db_scenario = db.query(models.Scenario).filter(
+        models.Scenario.id == scenario_id,
+        models.Scenario.user_id == user_id
+    ).first()
+
+    if not db_scenario:
+        return None
+
+    # Get the update data from the schema
+    update_data = scenario_update.model_dump(exclude_unset=True)
+
+    # Update the model instance's attributes
+    for key, value in update_data.items():
+        setattr(db_scenario, key, value)
+
+    db.add(db_scenario)
+    db.commit()
+    db.refresh(db_scenario)
+
+    return db_scenario
+
+def delete_preference_by_id(db: Session, *, preference_id: uuid.UUID, user_id: uuid.UUID) -> models.UserPreference | None:
+    """
+    Deletes a UserPreference by its ID.
+
+    Ensures that the preference belongs to the specified user to prevent
+    one user from deleting another's preferences.
+    """
+    # Find the preference by its ID and ensure it belongs to the user
+    preference_to_delete = db.query(models.UserPreference).filter(
+        models.UserPreference.id == preference_id,
+        models.UserPreference.user_id == user_id
+    ).first()
+
+    if not preference_to_delete:
+        # The preference doesn't exist or doesn't belong to this user
+        return None
+
+    db.delete(preference_to_delete)
+    db.commit()
+
+    return preference_to_delete
+
 # --- helper functions for security and data integrity of endpoints ---
 def get_scenario(db: Session, scenario_id: uuid.UUID) -> models.Scenario | None:
     """

@@ -38,6 +38,23 @@
     <div id="management-container" class="hidden">
         <h2>Manage Scenarios & Preferences</h2>
 
+        <hr>
+
+        <div id="preferences-section">
+            <h3>Your Preferences</h3>
+            <p>Add preferences to tailor the AI's suggestions to your needs (e.g., Key: "tone", Value: "formal").</p>
+
+            <div id="preferences-list">
+                </div>
+
+            <div id="add-preference-form">
+                <input type="text" id="preference-key" placeholder="Preference Key">
+                <input type="text" id="preference-value" placeholder="Preference Value">
+                <button id="add-preference-btn">Add Preference</button>
+            </div>
+        </div>
+
+
         <div id="add-scenario-form">
             <h3>Add New Scenario</h3>
             <input type="text" id="scenario-name" placeholder="Scenario Name (e.g., Restaurant)">
