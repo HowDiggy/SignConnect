@@ -1,3 +1,4 @@
+import os
 import google.generativeai as genai
 from ..core.config import get_settings
 from ..db import models
@@ -22,41 +23,49 @@ def get_response_suggestions(
     # For initializing the model, 'gemini-pro' is a good choice for this task
     model = genai.GenerativeModel('gemini-1.5-flash')
 
-    # --- dynamically build rich prompt ---
+    # Add a check for the API key
+    if not get_settings().GEMINI_API_KEY:
+        print("Warning: GEMINI_API_KEY is not set. Using placeholder suggestions.")
+        return "How can I help you?\nWhat is the price?\nThank you."
 
-    prompt_parts = [
-        "You are an assistant for a deaf or hard-of-hearing person.",
-        "Based on the following information, provide three concise, natural-sounding responses that the user can say.",
-        "Each response should be on a new line, with no extra formatting.",
-        f'\nTranscript of what was just said: "{transcript}"'
-    ]
+        # --- Build the Enhanced Prompt ---
 
+        # Start with the basic instruction and structure
+        prompt_parts = [
+            "You are a helpful assistant providing response suggestions for a user who is deaf or hard-of-hearing.",
+            "Based on the following conversation transcript and the user's personal context, provide 2-3 brief and relevant response suggestions, each on a new line.",
+            "Do not include any other text, numbering, or explanations.",
+            "\n---\n"
+        ]
 
-    # add the similar question context if one was found
-    if similar_question:
-        prompt_parts.append(
-            "\nThis is similar to the pre-configured question the user has saved."
-        )
-        prompt_parts.append(
-            f'User\'s pre-configured question: "{similar_question.question_text}"'
-        )
-        prompt_parts.append(
-            f'User\'s pre-configured answer: "{similar_question.user_answer_text}"'
-        )
-        prompt_parts.append(
-            "One of your suggestions should be very similar to the user's pre-configured answer."
-        )
+        # Add the conversation transcript
+        prompt_parts.append(f"**Conversation Transcript:**\n\"{transcript}\"")
 
-    # add the user's general preferences if they exist
-    if preferences:
-        prompt_parts.append("\nConsider the user's general preferences:")
-        for pref in preferences:
-            prompt_parts.append(f'- {pref.category}: {pref.preference_text}')
+        # Add the user's personal context section
+        prompt_parts.append("\n**User's Personal Context:**")
 
-    prompt_parts.append("\nResponses:")
+        # Format and add preferences if they exist
+        if preferences:
+            # This creates a clean, bulleted list of preferences
+            formatted_preferences = "\n".join([f"- {p.category}: {p.preference_text}" for p in preferences])
+            prompt_parts.append(f"General Preferences:\n{formatted_preferences}")
+        else:
+            # Handle the case where there are no preferences
+            prompt_parts.append("General Preferences: None")
 
-    # join all parts into a single prompt string
-    prompt = "\n".join(prompt_parts)
+        # Format and add the most similar saved question-answer pair if it exists
+        if similar_question:
+            prompt_parts.append(
+                "\nMost Relevant Saved Scenario:\n"
+                f"Question: \"{similar_question.question_text}\"\n"
+                f"User's Answer: \"{similar_question.user_answer_text}\""
+            )
+
+        prompt_parts.append("\n---\n")
+        prompt_parts.append("Provide your suggestions below:")
+
+        # Join all parts into a single prompt string
+        prompt = "\n".join(prompt_parts)
     print(f"--- Generated Prompt for Gemini ---\n{prompt}\n------------------------------")
 
     try:
