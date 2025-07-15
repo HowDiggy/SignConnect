@@ -68,7 +68,6 @@ class Conversation(ConversationBase):
 
 # --- Preference Schemas ---
 class UserPreferenceBase(BaseModel):
-    category: str
     preference_text: str
 
 class UserPreferenceCreate(UserPreferenceBase):
@@ -80,7 +79,6 @@ class UserPreference(UserPreferenceBase):
     model_config = ConfigDict(from_attributes=True)
 
 class UserPreferenceUpdate(BaseModel):
-    category: Optional[str] = None
     preference_text: Optional[str] = None
 
 

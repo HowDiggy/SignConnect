@@ -64,7 +64,7 @@ def create_user(db: Session, user: schemas.UserCreate) -> models.User:
 
 def create_user_preference(db: Session, preference: schemas.UserPreferenceCreate, user_id: uuid.UUID) -> models.UserPreference:
     """
-    Creates a new user preference record for a user.
+    Creates a user preference in our local DB.
     :param db:
     :param preference:
     :param user_id:
@@ -254,7 +254,6 @@ def delete_preference_by_id(db: Session, *, preference_id: uuid.UUID, user_id: u
 
     return preference_to_delete
 
-# ... (at the end of the file, after delete_preference_by_id)
 
 def update_preference(
     db: Session,
@@ -265,10 +264,12 @@ def update_preference(
 ) -> models.UserPreference | None:
     """
     Updates a UserPreference.
-
-    Ensures the preference belongs to the current user before applying updates.
+    :param db:
+    :param preference_id:
+    :param user_id:
+    :param preference_update:
+    :return:
     """
-    # Find the preference and verify ownership
     db_preference = db.query(models.UserPreference).filter(
         models.UserPreference.id == preference_id,
         models.UserPreference.user_id == user_id
@@ -277,17 +278,14 @@ def update_preference(
     if not db_preference:
         return None
 
-    # Get the update data from the schema
+    # Simpler update logic
     update_data = preference_update.model_dump(exclude_unset=True)
-
-    # Update the model instance's attributes
     for key, value in update_data.items():
         setattr(db_preference, key, value)
 
     db.add(db_preference)
     db.commit()
     db.refresh(db_preference)
-
     return db_preference
 
 # --- helper functions for security and data integrity of endpoints ---

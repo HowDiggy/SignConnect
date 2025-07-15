@@ -59,12 +59,11 @@ class ConversationTurn(Base):
 
 class UserPreference(Base):
     """
-    Model for storing user-specific preferences.
+    Model for storing user-specific preferences as free-form text.
     """
     __tablename__ = "user_preferences"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    category = Column(String, index=True, nullable=False)
     preference_text = Column(String, nullable=False)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
 

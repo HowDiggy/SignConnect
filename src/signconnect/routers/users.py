@@ -46,22 +46,23 @@ def read_user_preferences(
     current_user: dict = Depends(get_current_user),
 ):
     """
-    Retrieve all preferences for currently authenticated user.
+    Retrieve all preferences for the currently authenticated user.
+    If the user does not exist in the local DB, create them first.
     """
     firebase_user_email = current_user.get("email")
     db_user = crud.get_user_by_email(db, email=firebase_user_email)
+
     if db_user is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        user_to_create = schemas.UserCreate(
+            email=firebase_user_email,
+            username=current_user.get("name") or firebase_user_email,
+            password="firebase_user_placeholder" # Password is not used, Firebase handles auth
+        )
+        db_user = crud.create_user(db=db, user=user_to_create)
 
     preferences = crud.get_user_preferences(db, user_id=db_user.id, skip=skip, limit=limit)
     return preferences
 
-
-@router.delete(
-    "/preferences/{preference_id}",
-    response_model=schemas.UserPreference,
-    summary="Delete a specific preference"
-)
 def delete_preference_endpoint(
         preference_id: uuid.UUID,
         *,

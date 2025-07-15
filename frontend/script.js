@@ -328,10 +328,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     const li = document.createElement('li');
                     li.dataset.preferenceId = pref.id;
                     li.innerHTML = `
-                        <span class="preference-text"><strong>${pref.category}:</strong> ${pref.preference_text}</span>
+                        <span class="preference-text">${pref.preference_text}</span>
                         <div class="edit-form">
-                            <input type="text" class="edit-preference-key-input" value="${pref.category}">
-                            <input type="text" class="edit-preference-value-input" value="${pref.preference_text}">
+                            <textarea class="edit-preference-textarea">${pref.preference_text}</textarea>
                         </div>
                         <button class="edit-preference-btn">Edit</button>
                         <button class="save-preference-btn">Save</button>
@@ -351,27 +350,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function addPreference(event) {
         event.preventDefault();
-        const keyInput = document.getElementById('preference-key');
-        const valueInput = document.getElementById('preference-value');
-        const key = keyInput.value.trim();
-        const value = valueInput.value.trim();
-        if (!key || !value) {
-            alert("Please provide both a key and a value for the preference.");
+        const textInput = document.getElementById('preference-text-input');
+        const preferenceText = textInput.value.trim();
+        if (!preferenceText) {
+            alert("Please enter a preference.");
             return;
         }
         try {
             const response = await fetch("http://localhost:8000/users/me/preferences/", {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentUserToken}`},
-                body: JSON.stringify({ category: key, preference_text: value })
+                body: JSON.stringify({ preference_text: preferenceText })
             });
             if (!response.ok) {
                 const errorData = await response.json();
                 const errorMessage = errorData.detail?.[0]?.msg || errorData.detail || "Failed to add preference";
                 throw new Error(errorMessage);
             }
-            keyInput.value = '';
-            valueInput.value = '';
+            textInput.value = '';
             fetchAndDisplayPreferences();
         } catch (error) {
             console.error("Error adding preference:", error);
@@ -389,14 +385,16 @@ document.addEventListener("DOMContentLoaded", () => {
     async function updatePreference(event) {
         const preferenceLi = event.target.closest('li');
         const preferenceId = preferenceLi.dataset.preferenceId;
-        const newKey = preferenceLi.querySelector('.edit-preference-key-input').value;
-        const newValue = preferenceLi.querySelector('.edit-preference-value-input').value;
-
+        const newText = preferenceLi.querySelector('.edit-preference-textarea').value;
+        if (!newText.trim()) {
+            alert("Preference text cannot be empty.");
+            return;
+        }
         try {
             const response = await fetch(`http://localhost:8000/users/me/preferences/${preferenceId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentUserToken}` },
-                body: JSON.stringify({ category: newKey, preference_text: newValue })
+                body: JSON.stringify({ preference_text: newText })
             });
             if (!response.ok) throw new Error((await response.json()).detail || 'Failed to update preference.');
             fetchAndDisplayPreferences();
