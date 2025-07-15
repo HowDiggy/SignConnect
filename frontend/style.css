@@ -67,3 +67,21 @@ input, button {
     justify-content: space-between;
     align-items: center;
 }
+
+#preferences-list li .edit-form,
+#preferences-list li .save-preference-btn,
+#preferences-list li .cancel-preference-edit-btn { /* Change this line */
+    display: none;
+}
+
+#preferences-list li.editing .edit-form,
+#preferences-list li.editing .save-preference-btn,
+#preferences-list li.editing .cancel-preference-edit-btn {
+    display: inline-block;
+}
+
+#preferences-list li.editing .preference-text,
+#preferences-list li.editing .edit-preference-btn,
+#preferences-list li.editing .delete-preference-btn {
+    display: none;
+}

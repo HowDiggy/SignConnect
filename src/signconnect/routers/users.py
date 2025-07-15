@@ -88,3 +88,37 @@ def delete_preference_endpoint(
         )
 
     return deleted_preference
+
+@router.put(
+    "/preferences/{preference_id}",
+    response_model=schemas.UserPreference,
+    summary="Update a specific preference"
+)
+def update_preference_endpoint(
+    preference_id: uuid.UUID,
+    preference_update: schemas.UserPreferenceUpdate,
+    *,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Update a specific preference by its ID for the current user.
+    """
+    db_user = crud.get_user_by_email(db, email=current_user.get("email"))
+    if not db_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    updated_preference = crud.update_preference(
+        db=db,
+        preference_id=preference_id,
+        user_id=db_user.id,
+        preference_update=preference_update
+    )
+
+    if updated_preference is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Preference with ID {preference_id} not found or you do not have permission to edit it."
+        )
+
+    return updated_preference

@@ -79,6 +79,10 @@ class UserPreference(UserPreferenceBase):
     user_id: uuid.UUID
     model_config = ConfigDict(from_attributes=True)
 
+class UserPreferenceUpdate(BaseModel):
+    category: Optional[str] = None
+    preference_text: Optional[str] = None
+
 
 # --- User Schemas ---
 class UserBase(BaseModel):
