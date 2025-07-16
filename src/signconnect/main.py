@@ -2,22 +2,16 @@ print("--- LOADING LATEST VERSION OF main.py ---")
 
 import asyncio
 import json
-import uuid
+from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, Query, Header
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from google.cloud import speech
 from sqlalchemy.orm import Session
-from fastapi.middleware.cors import CORSMiddleware
 
-from . import crud, schemas
-from .db import database, models
-from .db.database import get_db
-from contextlib import asynccontextmanager
-from .llm.client import get_response_suggestions
-from .firebase import verify_firebase_token
-
-from .routers import users, scenarios, questions
-from .dependencies import get_current_user
+# --- Core application and DB modules ---
+# These are safe to import here as they don't loop back
+from .db.database import get_db, Base, engine
 
 
 @asynccontextmanager
@@ -35,23 +29,6 @@ async def lifespan(app: FastAPI):
     # Create database tables
     models.Base.metadata.create_all(bind=database.engine)
 
-    # Tell the main app to use the new router
-    print("Including scenarios router...")
-    app.include_router(scenarios.router)
-    # tell the main app to use the users router
-    print("Including users router...")
-    app.include_router(users.router)
-    # tell the main app to use the questions router
-    print("Including questions router...")
-    app.include_router(questions.router)
-
-    # --- NEW DEBUGGING STEP ---
-    print("\n--- Registered Routes ---")
-    for route in app.routes:
-        if hasattr(route, "path"):
-            print(f"Path: {route.path}, Name: {route.name}")
-    print("-----------------------\n")
-
     yield
     print("Appliccation shutdown.")
 
@@ -61,6 +38,18 @@ app = FastAPI(
     description="API for the SignConnect assistive communication application.",
     version="0.1.0"
 )
+
+# This breaks the circular import chain
+from .routers import users, scenarios, questions
+from . import crud, schemas
+from .db import database, models
+from .llm.client import get_response_suggestions
+
+# Tell the main app to use the new router
+print("Including routers...")
+app.include_router(scenarios.router)
+app.include_router(users.router)
+app.include_router(questions.router)
 
 # --- ADD THIS CORS MIDDLEWARE CONFIGURATION ---
 # This allows your frontend (running on port 63342) to communicate with your backend.
@@ -80,6 +69,8 @@ app.add_middleware(
 # ---------------------------------------------
 
 # --- WebSocket Transcription Logic ---
+
+from .dependencies import get_current_user # dependency needed for WebSocket
 
 async def audio_receiver(websocket: WebSocket, queue: asyncio.Queue):
     """Receives audio chunks from the client and puts them into a queue."""

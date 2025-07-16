@@ -1,7 +1,7 @@
 # src/signconnect/db/database.py
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 
 from signconnect.core.config import get_settings
 
