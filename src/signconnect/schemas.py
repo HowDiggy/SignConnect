@@ -35,6 +35,7 @@ class ScenarioCreate(ScenarioBase):
 
 class Scenario(ScenarioBase):
     id: uuid.UUID
+    user_id: uuid.UUID
     questions: List[ScenarioQuestion] = []
     model_config = ConfigDict(from_attributes=True)
 

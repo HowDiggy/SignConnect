@@ -69,7 +69,7 @@ def read_user_preferences(
 
     preferences = crud.get_user_preferences(db, user_id=db_user.id, skip=skip, limit=limit)
     return preferences
-
+@router.delete("/preferences/{preference_id}", response_model=schemas.UserPreference)
 def delete_preference_endpoint(
         preference_id: uuid.UUID,
         *,
