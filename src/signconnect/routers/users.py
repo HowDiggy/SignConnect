@@ -23,6 +23,7 @@ def create_preference(
     """
     Create a new preference for the currently authenticated user.
     """
+    print("\n--- ROUTER: `create_preference` endpoint called. ---")
     firebase_user_email = current_user.get("email")
     db_user = crud.get_user_by_email(db, email=firebase_user_email)
 

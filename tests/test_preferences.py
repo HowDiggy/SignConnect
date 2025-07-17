@@ -13,21 +13,24 @@ def test_create_user_on_first_preference(
     WHEN they make a POST request to create their first preference,
     THEN a new user record should be created in the local database.
     """
-    # ARRANGE: Define the data for the new preference
+    # ARRANGE
+    print("\n--- TEST: ARRANGE step ---")
     preference_data = {
         "preference_text": "I prefer a friendly and casual tone.",
     }
 
-    # ACT: Make a POST request using the authenticated client
+    # ACT
+    print("\n--- TEST: ACT step (making POST request) ---")
     response = authenticated_client.post("/users/me/preferences/", json=preference_data)
 
-    # ASSERT (Part 1): Check that the API call was successful
+    # ASSERT
+    print("\n--- TEST: ASSERT step ---")
     assert response.status_code == 200, response.text
 
-    # ASSERT (Part 2): Verify the user was actually created in the database
     user_in_db = db_session.query(models.User).filter(
         models.User.email == "newuser@example.com"
     ).first()
 
     assert user_in_db is not None
     assert user_in_db.email == "newuser@example.com"
+    print("\n--- TEST: Assertions passed! ---")

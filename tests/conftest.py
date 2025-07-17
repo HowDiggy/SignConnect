@@ -4,26 +4,27 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+# This is the only place we need to import models now, for the fixture
+from src.signconnect.db import models
+
 # Import the app and database components
 from src.signconnect.main import app
 from src.signconnect.db.database import get_db, Base
 from src.signconnect.db.test_database import engine, TestingSessionLocal
 from src.signconnect.dependencies import get_current_user
 
-# This is the only place we need to import models now, for the fixture
-from src.signconnect.db import models
-
 
 @pytest.fixture(scope="function")
 def db_session() -> Session:
     """Creates a clean database session for each test."""
-    # Now that the app (and its models) are loaded cleanly, we can create the tables.
+    print("\n--- TEST SETUP: Creating all database tables... ---")
     Base.metadata.create_all(bind=engine)
     db = TestingSessionLocal()
     try:
         yield db
     finally:
         db.close()
+        print("\n--- TEST TEARDOWN: Dropping all database tables... ---")
         Base.metadata.drop_all(bind=engine)
 
 
