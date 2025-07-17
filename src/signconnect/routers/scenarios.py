@@ -64,6 +64,7 @@ def create_scenario(
             email=firebase_user_email,
             username=current_user.get("name") or firebase_user_email,
             password="firebase_user_placeholder",
+            firebase_uid=current_user.get("uid"),
         )
         db_user = crud.create_user(db=db, user=user_to_create)
 

@@ -62,7 +62,8 @@ def read_user_preferences(
         user_to_create = schemas.UserCreate(
             email=firebase_user_email,
             username=current_user.get("name") or firebase_user_email,
-            password="firebase_user_placeholder" # Password is not used, Firebase handles auth
+            password="firebase_user_placeholder", # Password is not used, Firebase handles auth
+            firebase_uid=current_user.get("uid"),
         )
         db_user = crud.create_user(db=db, user=user_to_create)
 
