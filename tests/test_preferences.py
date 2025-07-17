@@ -1,59 +1,51 @@
-import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
-
-from src.signconnect.main import app
 from src.signconnect.db import models
-from src.signconnect.db.database import get_db, Base
-from src.signconnect.db.test_database import engine, TestingSessionLocal
 
-from src.signconnect.dependencies import get_current_user
+# No more global variables, no more manual setup, no more 'app' imports.
+# All setup is handled by the fixtures from conftest.py.
 
-# --- ARRANGE (Part 1): Mocking the Firebase Dependency ---
-
-# This is our fake user data that the mock will return.
-# It simulates a user who is logged into Firebase but doesn't exist in our local DB yet.
-FAKE_FIREBASE_USER = {
-    "email": "newuser@example.com",
-    "name": "New User",
-    "uid": "fake-firebase-uid-123",
-}
-
-
-# This function will replace the real `get_current_user` function during our test.
-def override_get_current_user():
-    return FAKE_FIREBASE_USER
-
-
-# We apply the mock to our app.
-app.dependency_overrides[get_current_user] = override_get_current_user
-
-
-# --- The Test Function ---
-
-def test_create_user_on_first_preference(authenticated_client: TestClient, db_session: Session):
+def test_create_user_on_first_preference(
+    authenticated_client: TestClient, 
+    db_session: Session
+):
     """
-    GIVEN a user exists in Firebase but not the local database,
-    WHEN they make a POST request to create their first preference,
-    THEN a new user record should be created in the local database.
+    GIVEN a user is authenticated via Firebase but not in the local DB,
+    WHEN they create their first preference,
+    THEN a new user record should be created in the database,
+    AND the new preference should be returned successfully.
     """
-    # ARRANGE (Part 2): Define the data for the new preference
+    # ARRANGE Part 1: Verify the user is NOT in the database yet.
+    # The `authenticated_client` fixture provides the mocked user info.
+    user_in_db = db_session.query(models.User).filter(
+        models.User.firebase_uid == "fake-firebase-uid-123"
+    ).first()
+    assert user_in_db is None, "User should not exist before the API call."
+
+    # ARRANGE Part 2: Define the preference data to be sent.
     preference_data = {
-        "preference_text": "I prefer a friendly and casual tone.",
+        "preference_text": "Please use a formal and respectful tone in suggestions.",
     }
 
-    # ACT: Make a POST request to the create preference endpoint.
-    # The `client` fixture handles the HTTP request, and our mock provides the user.
-    response = authenticated_client.post("/users/me/preferences/", json=preference_data)
+    # ACT: Make the API call using the pre-authenticated client.
+    response = authenticated_client.post(
+        "/users/me/preferences/", 
+        json=preference_data
+    )
 
-    # ASSERT (Part 1): Check that the API call was successful.
+    # ASSERT Part 1: Check the API response.
     assert response.status_code == 200, response.text
+    response_data = response.json()
+    assert response_data["preference_text"] == preference_data["preference_text"]
+    assert "id" in response_data, "Response should contain the new preference ID."
 
-    # ASSERT (Part 2): Verify the user was actually created in the database.
-    # We query our test database directly to confirm the side-effect.
+    # ASSERT Part 2: Verify the user was created in the database.
     user_in_db = db_session.query(models.User).filter(
-        models.User.email == FAKE_FIREBASE_USER["email"]
-    ).first()
+        models.User.firebase_uid == "fake-firebase-uid-123"
+    ).one_or_none() # .one_or_none() is stricter and good for tests
+    assert user_in_db is not None, "User should have been created in the database."
+    assert user_in_db.email == "newuser@example.com"
+    print(f"\nSUCCESS: User '{user_in_db.email}' was created with ID: {user_in_db.id}")
 
-    assert user_in_db is not None
-    assert user_in_db.email == FAKE_FIREBASE_USER["email"]
+    # ASSERT Part 3: Verify the preference was linked to the new user.
+    assert response_data["user_id"] == str(user_in_db.id)

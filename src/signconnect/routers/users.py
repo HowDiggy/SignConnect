@@ -34,7 +34,8 @@ def create_preference(
         user_to_create = schemas.UserCreate(
             email=firebase_user_email,
             username=current_user.get("name") or firebase_user_email,
-            password="firebase_user_placeholder"
+            password="firebase_user_placeholder",
+            firebase_uid=current_user.get("uid")
         )
         db_user = crud.create_user(db=db, user=user_to_create)
         print("\n--- db user created")

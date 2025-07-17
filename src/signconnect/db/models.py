@@ -5,11 +5,12 @@ import uuid
 import datetime
 from sqlalchemy import Column, String, DateTime, ForeignKey, Boolean
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, declarative_base
 from datetime import timezone
 from pgvector.sqlalchemy import Vector
 
-from signconnect.db.database import Base
+# CREATE THE BASE HERE - THIS IS THE KEY CHANGE
+Base = declarative_base()
 
 class User(Base):
     """
@@ -25,6 +26,7 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(timezone.utc)) # lambda function ensures time
     # is calculated every time a new row is created, rather than just once when the applications starts
+    firebase_uid = Column(String, unique=True, index=True, nullable=True)  # Nullable for now if you have existing users
 
     conversations = relationship("Conversation", back_populates="user")
     preferences = relationship("UserPreference", back_populates="owner")

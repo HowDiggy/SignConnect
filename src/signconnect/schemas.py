@@ -89,6 +89,7 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
+    firebase_uid: str | None = None
 
 class User(UserBase):
     id: uuid.UUID

@@ -55,6 +55,7 @@ def create_user(db: Session, user: schemas.UserCreate) -> models.User:
         email=user.email,
         username=user.username,
         password_hash=placeholder_hash,
+        firebase_uid=user.firebase_uid,
         is_active=True
     )
     db.add(db_user)

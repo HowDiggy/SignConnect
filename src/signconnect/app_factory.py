@@ -7,27 +7,40 @@ from fastapi.middleware.cors import CORSMiddleware
 # --- Core application and DB modules ---
 from .db.database import Base, engine
 
-def create_app() -> FastAPI:
+# This is the production lifespan function.
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Handles application startup and shutdown events."""
+    from .db import database, models
+
+    print("Application starting: Enabling pgvector extension...")
+    database.enable_pgvector_extension()
+
+    print("Creating database tables...")
+    models.Base.metadata.create_all(bind=engine)
+    yield
+    print("Application shutdown.")
+
+
+def create_app(testing: bool = False) -> FastAPI:
     """
     Application factory to create and configure the FastAPI app.
     This is the single source of truth for app creation.
+
+    Args:
+        testing (bool): If True, the app is created without the production lifespan
+                        event handler, making it suitable for testing.
     """
-    @asynccontextmanager
-    async def lifespan(app: FastAPI):
-        """Handles application startup and shutdown events."""
-        # Import modules needed only for startup right here
-        from .db import database, models
 
-        print("Application starting: Enabling pgvector extension...")
-        database.enable_pgvector_extension()
+    # ADD THIS PRINT STATEMENT
+    print(f"\n--- FACTORY: create_app() called with testing={testing} ---\n")
 
-        print("Creating database tables...")
-        models.Base.metadata.create_all(bind=engine)
-        yield
-        print("Application shutdown.")
+
+    # Conditionally set the lifespan based on the 'testing' flag.
+    lifespan_to_use = None if testing else lifespan
 
     app = FastAPI(
-        lifespan=lifespan,
+        lifespan=lifespan_to_use, # Use the conditional lifespan
         title="SignConnect API",
         description="API for the SignConnect assistive communication application.",
         version="0.1.0"
@@ -42,6 +55,7 @@ def create_app() -> FastAPI:
     app.include_router(websockets.router)
 
     # --- Add CORS Middleware ---
+    # (Keep your existing CORS middleware setup here)
     origins = [
         "http://localhost",
         "http://localhost:63342",

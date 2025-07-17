@@ -1,7 +1,7 @@
 # src/signconnect/db/database.py
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.orm import declarative_base
+from .models import Base
 
 from signconnect.core.config import get_settings
 
@@ -15,7 +15,7 @@ engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # create a Base class. Our ORM models will inherit from this class.
-Base = declarative_base()
+# Base = declarative_base()
 
 # dependency for getting a db session
 def get_db():
