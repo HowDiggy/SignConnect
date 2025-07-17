@@ -25,15 +25,19 @@ def create_preference(
     """
     print("\n--- ROUTER: `create_preference` endpoint called. ---")
     firebase_user_email = current_user.get("email")
+    print("\n--- Router: firebase user email set")
     db_user = crud.get_user_by_email(db, email=firebase_user_email)
+    print("\n--- db_user set by email")
 
     if db_user is None:
+        print("\n--- db_user is none")
         user_to_create = schemas.UserCreate(
             email=firebase_user_email,
             username=current_user.get("name") or firebase_user_email,
             password="firebase_user_placeholder"
         )
         db_user = crud.create_user(db=db, user=user_to_create)
+        print("\n--- db user created")
 
     return crud.create_user_preference(db=db, preference=preference, user_id=db_user.id)
 

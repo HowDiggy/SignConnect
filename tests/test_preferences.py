@@ -31,7 +31,7 @@ app.dependency_overrides[get_current_user] = override_get_current_user
 
 # --- The Test Function ---
 
-def test_create_user_on_first_preference(client: TestClient, db_session: Session):
+def test_create_user_on_first_preference(authenticated_client: TestClient, db_session: Session):
     """
     GIVEN a user exists in Firebase but not the local database,
     WHEN they make a POST request to create their first preference,
@@ -44,7 +44,7 @@ def test_create_user_on_first_preference(client: TestClient, db_session: Session
 
     # ACT: Make a POST request to the create preference endpoint.
     # The `client` fixture handles the HTTP request, and our mock provides the user.
-    response = client.post("/users/me/preferences/", json=preference_data)
+    response = authenticated_client.post("/users/me/preferences/", json=preference_data)
 
     # ASSERT (Part 1): Check that the API call was successful.
     assert response.status_code == 200, response.text
