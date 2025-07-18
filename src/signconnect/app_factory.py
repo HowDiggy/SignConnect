@@ -47,12 +47,13 @@ def create_app(testing: bool = False) -> FastAPI:
     )
 
     # --- Import and include all your routers ---
-    from .routers import users, scenarios, questions, websockets
+    from .routers import users, scenarios, questions, websockets, firebase
     print("Including routers...")
     app.include_router(scenarios.router)
     app.include_router(users.router)
     app.include_router(questions.router)
     app.include_router(websockets.router)
+    app.include_router(firebase.router)
 
     # --- Add CORS Middleware ---
     # (Keep your existing CORS middleware setup here)
@@ -60,6 +61,7 @@ def create_app(testing: bool = False) -> FastAPI:
         "http://localhost",
         "http://localhost:63342",
         "http://127.0.0.1:63342",
+        "https://signconnect.paulojauregui.com",
     ]
     app.add_middleware(
         CORSMiddleware,

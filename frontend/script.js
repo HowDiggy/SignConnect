@@ -1,4 +1,13 @@
-document.addEventListener("DOMContentLoaded", () => {
+// frontend/script.js
+
+// Declare global variables that will be used by initializeFirebaseDependentScripts
+let socket;
+let mediaRecorder;
+let currentUserToken = null;
+
+// --- Authentication Logic ---
+// This function will now be called from index.html after Firebase is ready
+export function initializeFrontendLogic() {
     // Get all DOM elements
     const emailInput = document.getElementById("email");
     const passwordInput = document.getElementById("password");
@@ -20,12 +29,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const scenariosListDiv = document.getElementById("scenarios-list");
     const addPreferenceBtn = document.getElementById('add-preference-btn');
 
-    // Firebase and State Variables
+    // Firebase variables are now accessed after window.firebaseAuth is set
     const { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } = window.firebaseAuth;
     const auth = getAuth(window.firebaseApp);
-    let socket;
-    let mediaRecorder;
-    let currentUserToken = null;
 
     // --- Authentication Logic ---
     onAuthStateChanged(auth, user => {
@@ -487,4 +493,4 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         };
     }
-});
+}
