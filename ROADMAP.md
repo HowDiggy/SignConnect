@@ -86,10 +86,4 @@ We are in the process of building the frontend UI for the personalization engine
 
 #### **What's Left to Do:**
 
-1. **Fix the Current Bug:** Resolve the error preventing scenario creation.
-    
-2. **Complete the Personalization UI:** Fully implement the `fetchAndDisplayScenarios` function and add UI for adding questions to scenarios.
-    
-3. **Enhance the LLM Prompt:** Update the `llm/client.py` to use the newly fetched user preferences and vector search results to create hyper-personalized prompts for Gemini.
-    
-4. **Polish and Deploy:** Refine the UI, write tests, refactor code to include router for endpoints, and deploy the application to the cloud.
+4. **Polish, Deploy, Iterate:** Refine the UI, write tests, refactor code to include router for endpoints, and deploy the application to the cloud.
