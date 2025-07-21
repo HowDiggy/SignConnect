@@ -42,11 +42,12 @@ def get_response_suggestions(
     # Add the conversation transcript
     prompt_parts.append(f"**Conversation Transcript:**\n\"{transcript}\"")
 
-    # Add the user's personal context section
-    prompt_parts.append("\n**User's Personal Context:**")
 
     # Format and add preferences if they exist
     if preferences:
+        # Add the user's personal context section
+        prompt_parts.append("\n**User's Personal Context:**")
+
         # This creates a clean, bulleted list of preferences
         formatted_preferences = "\n".join([f"- {p.preference_text}" for p in preferences])
         prompt_parts.append(f"General Preferences:\n{formatted_preferences}")

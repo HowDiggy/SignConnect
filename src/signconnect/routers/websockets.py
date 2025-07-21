@@ -19,6 +19,7 @@ router = APIRouter(
 
 async def audio_receiver(websocket: WebSocket, queue: asyncio.Queue):
     """Receives audio chunks from the client and puts them into a queue."""
+    print("--- RECEIVER TASK: Starting...")
     try:
         while True:
             data = await websocket.receive_bytes()
@@ -33,6 +34,7 @@ async def audio_processor(websocket: WebSocket, queue: asyncio.Queue, user: dict
     """
     Processes audio, finds similar questions, and gets personalized suggestions.
     """
+    print("--- PROCESSOR TASK: Starting...")
     client = speech.SpeechAsyncClient()
 
     recognition_config = speech.RecognitionConfig({
@@ -121,16 +123,21 @@ async def websocket_endpoint(
     print(f"WebSocket connection established for user: {user.get('email')}")
     audio_queue = asyncio.Queue()
 
+    print("--- SERVER: Creating autio_receiver and audio_processor tasts ---")
     receiver_task = asyncio.create_task(audio_receiver(websocket, audio_queue))
 
     # pass the user and b session to the processor task
     processor_task = asyncio.create_task(audio_processor(websocket, audio_queue, user, db))
+    print("--- SERVER: Tasks created.")
 
     done, pending = await asyncio.wait(
         [receiver_task, processor_task],
         return_when=asyncio.FIRST_COMPLETED,
     )
+    print("--- SERVER: async.wait() has completed ---")
 
     for task in pending:
+        print(f"--- SERVER: Cancelling task {task.get_name()} ---")
         task.cancel()
+
     print("WebSocket connection closed.")
