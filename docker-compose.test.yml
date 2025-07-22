@@ -1,4 +1,4 @@
-# docker-compose.yml
+# docker-compose.test.yml
 services:
   db:
     image: ankane/pgvector
@@ -7,7 +7,7 @@ services:
       - POSTGRES_PASSWORD=mypassword
       - POSTGRES_DB=signconnect_db
     ports:
-      - "5432:5432"
+      - "5432" # Use a random host port for tests
     volumes:
       - postgres_data:/var/lib/postgresql/data
 

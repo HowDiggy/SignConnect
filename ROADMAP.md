@@ -66,7 +66,7 @@ We have successfully built a robust foundation. We have:
 
 #### **6. What's Left to Do:**
 
-- LLM suggestions into possible questions user may encounter for upcoming scenario. User is presented with possible questions and those they choose to answer are saved as question:answer pairs in that respective scenario. 
+- LLM suggestions for possible questions user may encounter for upcoming scenario. User is presented with possible questions and those they choose to answer are saved as question:answer pairs in that respective scenario. 
 - Design Transcript flow for conversation: when a new conversation kicks of, the history should be saved as the conversation continues to allow context into what has been said.
 - Post Conversation: Users should be able to take a previous/completed conversation, and turn that into question:response pairs to save to their profile. User context should grow and recommendations improve the more the service is used.
 - Refine the UI/UX to be clean, intuitive, and accessible.

@@ -17,7 +17,8 @@ from src.signconnect.dependencies import get_current_user
 @pytest.fixture(scope="session")
 def docker_compose_file(pytestconfig):
     """Override the default docker-compose.yml file path."""
-    return Path(pytestconfig.rootdir) / "docker-compose.yml"
+    # Point to our new test-specific file
+    return Path(pytestconfig.rootdir) / "docker-compose.test.yml"
 
 
 # --- This is the corrected version of the postgres_service fixture ---
