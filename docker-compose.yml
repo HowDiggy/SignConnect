@@ -1,13 +1,13 @@
+# docker-compose.yml
 services:
   db:
     image: ankane/pgvector
-    container_name: signconnect_db
     environment:
       - POSTGRES_USER=myuser
       - POSTGRES_PASSWORD=mypassword
       - POSTGRES_DB=signconnect_db
     ports:
-      - "5432:5432"
+      - "5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
