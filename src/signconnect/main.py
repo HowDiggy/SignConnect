@@ -9,7 +9,8 @@ app = create_app()
 # We no longer need the 'if __name__ == "__main__"' block,
 # as Uvicorn handles running the server via the command line.
 
-
+# how to run this:
+# uvicorn signconnect.main:app --app-dir src --reload
 """
 # src/signconnect/main.py
 
@@ -30,5 +31,6 @@ if __name__ == "__main__":
         port=8000
     )
 
-
+# how to run this:
+python -m src.signconnect.main
 """
