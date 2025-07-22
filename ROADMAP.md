@@ -7,7 +7,7 @@
 
 - **Project Name:** SignConnect
     
-- **Mission:** To build an assistive Progressive Web App (PWA) that empowers deaf and hard-of-hearing individuals by providing real-time, AI-powered communication support.
+- **Mission:** To build an assistive Progressive Web App (PWA) that empowers deaf and non-verbal individuals by providing real-time, AI-powered communication support.
     
 - **Core Loop:** The application listens to spoken language, transcribes it to text, and suggests relevant, personalized responses for the user.
     
@@ -72,6 +72,7 @@ We have successfully built a robust foundation. We have:
 - Refine the UI/UX to be clean, intuitive, and accessible.
 - Integrate payment processor for membership service.
 - Write comprehensive documentation (README, API docs).
+- Implement improved logging
 - Containerize the FastAPI application using Docker.
 - Write Kubernetes deployment manifests (`Deployment`, `Service`, `Ingress`) to deploy containers to existing Oracle Cloud cluster.
 - Set up a CI/CD pipeline using GitHub Actions to automate testing and deployment to ArgoCD.
