@@ -1,5 +1,6 @@
 # tests/integration/test_vector_search.py
-
+import json
+import base64
 from unittest.mock import patch, MagicMock, AsyncMock
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -15,7 +16,7 @@ def test_full_transcription_and_vector_search(
         mock_speech_client,
         mock_llm_client,
         integration_client: TestClient,
-        integration_db_session: Session  # <-- Using our new PostgreSQL fixture
+        integration_db_session: Session
 ):
     """
     GIVEN a user with several saved questions in a real PostgreSQL database,
@@ -28,8 +29,8 @@ def test_full_transcription_and_vector_search(
     mock_result = MagicMock()
     mock_result.results = [MagicMock()]
     mock_result.results[0].is_final = True
-    # This is the new transcript from the "user"
-    mock_result.results[0].alternatives[0].transcript = "What's the price for a latte?"
+    transcript_text = "What's the price for a latte?"
+    mock_result.results[0].alternatives[0].transcript = transcript_text
 
     async def async_generator():
         yield mock_result
@@ -50,7 +51,6 @@ def test_full_transcription_and_vector_search(
         scenario=schemas.ScenarioCreate(name="Coffee Shop"),
         user_id=user.id
     )
-    # Add several questions. The vector search should find the one about "cost".
     crud.create_scenario_question(db, schemas.ScenarioQuestionCreate(question_text="Where is the bathroom?",
                                                                      user_answer_text="It's in the back."), scenario.id)
     crud.create_scenario_question(db, schemas.ScenarioQuestionCreate(question_text="How much does a coffee cost?",
@@ -59,32 +59,28 @@ def test_full_transcription_and_vector_search(
                                                                      user_answer_text="Yes, the password is 'coffee'."),
                                   scenario.id)
 
-    # ACT & ASSERT
+    # ACT
     with integration_client.websocket_connect("/ws") as websocket:
-        websocket.send_bytes(b'fake-audio-of-a-latte-question')
-        websocket.close()
+        # 1. Send audio data
+        fake_audio_bytes = b'fake-audio-of-a-latte-question'
+        fake_audio_base64 = base64.b64encode(fake_audio_bytes).decode('utf-8')
+        websocket.send_json({"type": "audio", "data": fake_audio_base64})
 
-        # We don't need to check the websocket messages here.
-        # We just need to let the server process the request.
+        # 2. Receive the final transcript from the server
+        final_transcript = websocket.receive_text()
+        assert final_transcript == f"final:{transcript_text}"
 
-    # ASSERT: The most important check!
-    # We verify that our LLM mock was called with the correct "similar question"
-    # that was found by the REAL vector search.
+        # 3. **THE FIX**: Send the request for suggestions, mimicking the frontend
+        websocket.send_json({"type": "get_suggestions", "transcript": transcript_text})
 
-    # Give the server a moment to process the background tasks
-    import time
-    time.sleep(1)
+        # 4. Now, receive the suggestions from the server
+        suggestions = websocket.receive_text()
+        assert "suggestions:" in suggestions
 
+    # ASSERT
     mock_llm_client.assert_called_once()
-
-    # THE DEBUGGING STEP: Print the entire call_args object
-    print(f"\n--- DEBUG: Inspecting mock_llm_client.call_args ---\n{mock_llm_client.call_args}\n")
-
-    # Access the arguments by name from the kwargs dictionary
     call_kwargs = mock_llm_client.call_args.kwargs
-
-    assert "similar_question" in call_kwargs
-    found_similar_question = call_kwargs["similar_question"]
+    found_similar_question = call_kwargs.get("similar_question")
 
     assert found_similar_question is not None
     assert found_similar_question.question_text == "How much does a coffee cost?"

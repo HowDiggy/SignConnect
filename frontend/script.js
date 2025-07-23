@@ -1,14 +1,18 @@
 // frontend/script.js
 
-// Declare global variables that will be used by initializeFirebaseDependentScripts
+// Declare global variables for state management
 let socket;
 let mediaRecorder;
 let currentUserToken = null;
+let lastFinalTranscript = "";
+let availableScenarios = [];
+let userStream;
 
-// --- Authentication Logic ---
-// This function will now be called from index.html after Firebase is ready
+/**
+ * Initializes the entire frontend logic after Firebase has been configured.
+ */
 export function initializeFrontendLogic() {
-    // Get all DOM elements
+    // Get all necessary DOM elements
     const emailInput = document.getElementById("email");
     const passwordInput = document.getElementById("password");
     const signUpBtn = document.getElementById("signup-btn");
@@ -28,8 +32,8 @@ export function initializeFrontendLogic() {
     const addScenarioBtn = document.getElementById("add-scenario-btn");
     const scenariosListDiv = document.getElementById("scenarios-list");
     const addPreferenceBtn = document.getElementById('add-preference-btn');
+    const scenarioSelectForQa = document.getElementById("scenario-select-for-qa");
 
-    // Firebase variables are now accessed after window.firebaseAuth is set
     const { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } = window.firebaseAuth;
     const auth = getAuth(window.firebaseApp);
 
@@ -43,6 +47,7 @@ export function initializeFrontendLogic() {
                 userInfoContainer.style.display = "block";
                 transcriptionContainer.style.display = "block";
                 managementContainer.style.display = "none";
+                populateScenarioSelect();
             });
         } else {
             currentUserToken = null;
@@ -50,6 +55,7 @@ export function initializeFrontendLogic() {
             userInfoContainer.style.display = "none";
             transcriptionContainer.style.display = "none";
             managementContainer.style.display = "none";
+            scenarioSelectForQa.innerHTML = '<option value="">Login to load scenarios</option>';
         }
     });
 
@@ -86,6 +92,7 @@ export function initializeFrontendLogic() {
             managementContainer.style.display = "none";
             transcriptionContainer.style.display = "block";
             toggleViewBtn.textContent = "Manage Scenarios & Preferences";
+            populateScenarioSelect();
         } else {
             managementContainer.style.display = "block";
             transcriptionContainer.style.display = "none";
@@ -95,7 +102,165 @@ export function initializeFrontendLogic() {
         }
     });
 
-    // --- Event Listener Setup ---
+    // --- Helper to convert Blob to Base64 ---
+    function blobToBase64(blob) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const base64String = reader.result.split(',')[1];
+                resolve(base64String);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    }
+
+    // --- Transcription Logic ---
+    startBtn.addEventListener("click", () => {
+        if (mediaRecorder && mediaRecorder.state === "recording") {
+            mediaRecorder.stop();
+        } else {
+            if (!currentUserToken) return alert("You must be logged in to start.");
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    userStream = stream;
+                    mediaRecorder = new MediaRecorder(userStream, { mimeType: 'audio/webm;codecs=opus' });
+
+                    mediaRecorder.ondataavailable = async (event) => {
+                        if (event.data.size > 0 && socket && socket.readyState === WebSocket.OPEN) {
+                            const audioBase64 = await blobToBase64(event.data);
+                            socket.send(JSON.stringify({ type: "audio", data: audioBase64 }));
+                        }
+                    };
+
+                    mediaRecorder.onstop = () => {
+                        if (userStream) {
+                            userStream.getTracks().forEach(track => track.stop());
+                        }
+                        if (socket) socket.close();
+                        startBtn.textContent = "Start Transcription";
+                        statusDisplay.textContent = "Idle";
+                    };
+
+                    transcriptionDisplay.innerHTML = "";
+                    suggestionsContainer.innerHTML = "";
+
+                    setupWebSocket(currentUserToken);
+                    mediaRecorder.start(1000);
+                    startBtn.textContent = "Stop Transcription";
+                })
+                .catch(error => console.error("Microphone access error:", error));
+        }
+    });
+
+    function setupWebSocket(token) {
+        const wsUrl = `ws://localhost:8000/ws?token=${token}`;
+        socket = new WebSocket(wsUrl);
+        socket.onopen = () => statusDisplay.textContent = "Connected";
+        socket.onclose = () => {
+            statusDisplay.textContent = "Disconnected";
+            if (mediaRecorder && mediaRecorder.state === "recording") {
+                mediaRecorder.stop();
+            }
+        };
+        socket.onerror = (error) => console.error("WebSocket error:", error);
+        socket.onmessage = (event) => {
+            const message = event.data;
+            const [prefix, content] = message.split(/:(.*)/s);
+
+            if (prefix === "interim") {
+                let liveBubble = transcriptionDisplay.querySelector('.live-transcript');
+                if (!liveBubble) {
+                    liveBubble = document.createElement('div');
+                    liveBubble.classList.add('transcript-message', 'message-them', 'live-transcript');
+                    transcriptionDisplay.appendChild(liveBubble);
+                }
+                liveBubble.textContent = content;
+                transcriptionDisplay.scrollTop = transcriptionDisplay.scrollHeight;
+            } else if (prefix === "final") {
+                let liveBubble = transcriptionDisplay.querySelector('.live-transcript');
+                if (liveBubble) {
+                    liveBubble.textContent = content;
+                    liveBubble.classList.remove('live-transcript');
+                } else {
+                    appendMessageToTranscript(content, 'them');
+                }
+                lastFinalTranscript = content;
+                if (socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({ type: "get_suggestions", transcript: lastFinalTranscript }));
+                }
+            } else if (prefix === "suggestions") {
+                const suggestions = JSON.parse(content);
+                suggestionsContainer.innerHTML = "";
+                suggestions.forEach(suggestion => {
+                    const button = document.createElement("button");
+                    button.textContent = suggestion;
+                    button.addEventListener('click', () => {
+                        appendMessageToTranscript(suggestion, 'me');
+                        suggestionsContainer.innerHTML = '';
+                    });
+                    suggestionsContainer.appendChild(button);
+                });
+                const typeCustomAnswerButton = document.createElement('button');
+                typeCustomAnswerButton.textContent = 'Type Custom Answer';
+                typeCustomAnswerButton.id = 'type-custom-answer-btn';
+                typeCustomAnswerButton.addEventListener('click', showMyAnswerInput);
+                suggestionsContainer.appendChild(typeCustomAnswerButton);
+            }
+        };
+    }
+
+    function appendMessageToTranscript(text, sender) {
+        const messageDiv = document.createElement('div');
+        messageDiv.classList.add('transcript-message', `message-${sender}`);
+        messageDiv.textContent = text;
+        transcriptionDisplay.appendChild(messageDiv);
+        transcriptionDisplay.scrollTop = transcriptionDisplay.scrollHeight;
+    }
+
+    function showMyAnswerInput() {
+        suggestionsContainer.innerHTML = "";
+        let myAnswerInput = document.createElement('textarea');
+        myAnswerInput.id = 'my-answer-input';
+        myAnswerInput.placeholder = 'My Answer';
+        suggestionsContainer.appendChild(myAnswerInput);
+        let sendMyAnswerButton = document.createElement('button');
+        sendMyAnswerButton.id = 'send-my-answer-btn';
+        sendMyAnswerButton.textContent = 'Send';
+        sendMyAnswerButton.addEventListener('click', sendMyAnswer);
+        suggestionsContainer.appendChild(sendMyAnswerButton);
+        myAnswerInput.focus();
+    }
+
+    async function sendMyAnswer() {
+        const myAnswerInput = document.getElementById('my-answer-input');
+        const userAnswer = myAnswerInput ? myAnswerInput.value.trim() : "";
+        if (!userAnswer) return alert("Please enter your answer.");
+
+        appendMessageToTranscript(userAnswer, 'me');
+        suggestionsContainer.innerHTML = "";
+
+        const selectedScenarioId = scenarioSelectForQa.value;
+        const questionText = lastFinalTranscript.trim();
+        if (!currentUserToken || !selectedScenarioId || !questionText) {
+            return console.warn("Could not save Q&A due to missing data.");
+        }
+
+        try {
+            const response = await fetch(`http://localhost:8000/users/me/scenarios/${selectedScenarioId}/questions/`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${currentUserToken}` },
+                body: JSON.stringify({ question_text: questionText, user_answer_text: userAnswer })
+            });
+            if (!response.ok) throw new Error((await response.json()).detail || "Failed to save.");
+            console.log("Custom Q&A saved successfully!");
+            if (managementContainer.style.display === "block") fetchAndDisplayScenarios();
+        } catch (error) {
+            console.error("Error saving custom answer:", error);
+        }
+    }
+
+    // --- All Scenario and Preference Management functions follow ---
     addScenarioBtn.addEventListener("click", addScenario);
     addPreferenceBtn.addEventListener('click', addPreference);
 
@@ -118,60 +283,56 @@ export function initializeFrontendLogic() {
         document.querySelectorAll('.delete-preference-btn').forEach(btn => btn.addEventListener('click', deletePreference));
     }
 
-    // --- Scenario Management ---
+    async function populateScenarioSelect() {
+        if (!currentUserToken) return;
+        try {
+            const response = await fetch("http://localhost:8000/users/me/scenarios/", { headers: { "Authorization": `Bearer ${currentUserToken}` } });
+            if (!response.ok) throw new Error("Failed to fetch scenarios");
+            availableScenarios = await response.json();
+            scenarioSelectForQa.innerHTML = '';
+            const freestyleScenarioName = "Freestyle";
+            let freestyleScenario = availableScenarios.find(s => s.name === freestyleScenarioName);
+
+            if (!freestyleScenario) {
+                try {
+                    const createResponse = await fetch("http://localhost:8000/users/me/scenarios/", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${currentUserToken}`},
+                        body: JSON.stringify({ name: freestyleScenarioName, description: "A default scenario for general conversations." })
+                    });
+                    if (!createResponse.ok) {
+                        const errorData = await createResponse.json();
+                        if (!errorData.detail?.includes("already exists")) throw new Error(errorData.detail || "Failed to create 'Freestyle' scenario.");
+                    }
+                    const reFetchResponse = await fetch("http://localhost:8000/users/me/scenarios/", { headers: { "Authorization": `Bearer ${currentUserToken}` } });
+                    if (!reFetchResponse.ok) throw new Error("Failed to re-fetch.");
+                    availableScenarios = await reFetchResponse.json();
+                    freestyleScenario = availableScenarios.find(s => s.name === freestyleScenarioName);
+                } catch (createError) { console.error("Error creating 'Freestyle' scenario:", createError); }
+            }
+            availableScenarios.forEach(scenario => {
+                const option = document.createElement("option");
+                option.value = scenario.id;
+                option.textContent = scenario.name;
+                scenarioSelectForQa.appendChild(option);
+            });
+            if (freestyleScenario) scenarioSelectForQa.value = freestyleScenario.id;
+        } catch (error) { console.error("Error populating scenarios:", error); }
+    }
+
     async function fetchAndDisplayScenarios() {
         if (!currentUserToken) return;
         scenariosListDiv.innerHTML = '<h3>Your Scenarios</h3>';
         try {
-            const response = await fetch("http://localhost:8000/users/me/scenarios/", {
-                method: "GET",
-                headers: { "Authorization": `Bearer ${currentUserToken}` }
-            });
+            const response = await fetch("http://localhost:8000/users/me/scenarios/", { headers: { "Authorization": `Bearer ${currentUserToken}` } });
             if (!response.ok) throw new Error((await response.json()).detail || "Failed to fetch");
-
             const scenarios = await response.json();
-            if (scenarios.length === 0) {
-                scenariosListDiv.innerHTML += "<p>You haven't created any scenarios yet.</p>";
-                return;
-            }
+            if (scenarios.length === 0) return scenariosListDiv.innerHTML += "<p>You haven't created any scenarios yet.</p>";
 
             scenarios.forEach(scenario => {
                 const scenarioDiv = document.createElement("div");
                 scenarioDiv.className = "scenario-item";
-                scenarioDiv.innerHTML = `
-                    <div class="scenario-header" data-scenario-id="${scenario.id}">
-                        <h4>${scenario.name}</h4>
-                        <div class="edit-form">
-                            <input type="text" class="edit-scenario-name-input" value="${scenario.name}">
-                        </div>
-                        <button class="edit-scenario-btn">Edit Name</button>
-                        <button class="save-scenario-btn">Save</button>
-                        <button class="cancel-scenario-edit-btn">Cancel</button>
-                        <button class="delete-scenario-btn">Delete Scenario</button>
-                    </div>
-                    <p>${scenario.description || 'No description'}</p>
-                    <ul>
-                        ${scenario.questions.map(q => `
-                            <li data-question-id="${q.id}">
-                                <div class="qa-text">
-                                    <span><b>Q:</b> ${q.question_text}</span><br>
-                                    <span><b>A:</b> ${q.user_answer_text}</span>
-                                </div>
-                                <div class="edit-form">
-                                    <input type="text" class="edit-question-input" value="${q.question_text}">
-                                    <input type="text" class="edit-answer-input" value="${q.user_answer_text}">
-                                </div>
-                                <button class="edit-question-btn">Edit</button>
-                                <button class="save-question-btn">Save</button>
-                                <button class="cancel-edit-btn">Cancel</button>
-                                <button class="delete-question-btn">Delete Q</button>
-                            </li>`).join('')}
-                    </ul>
-                    <div class="add-question-form">
-                        <input type="text" placeholder="Question" class="scenario-question-text">
-                        <input type="text" placeholder="Your Answer" class="scenario-answer-text">
-                        <button class="add-question-btn" data-scenario-id="${scenario.id}">Add Question</button>
-                    </div>`;
+                scenarioDiv.innerHTML = `<div class="scenario-header" data-scenario-id="${scenario.id}"><h4>${scenario.name}</h4><div class="edit-form"><input type="text" class="edit-scenario-name-input" value="${scenario.name}"></div><button class="edit-scenario-btn">Edit Name</button><button class="save-scenario-btn">Save</button><button class="cancel-scenario-edit-btn">Cancel</button><button class="delete-scenario-btn">Delete Scenario</button></div><p>${scenario.description || 'No description'}</p><ul>${scenario.questions.map(q => `<li data-question-id="${q.id}"><div class="qa-text"><span><b>Q:</b> ${q.question_text}</span><br><span><b>A:</b> ${q.user_answer_text}</span></div><div class="edit-form"><input type="text" class="edit-question-input" value="${q.question_text}"><input type="text" class="edit-answer-input" value="${q.user_answer_text}"></div><button class="edit-question-btn">Edit</button><button class="save-question-btn">Save</button><button class="cancel-edit-btn">Cancel</button><button class="delete-question-btn">Delete Q</button></li>`).join('')}</ul><div class="add-question-form"><input type="text" placeholder="Question" class="scenario-question-text"><input type="text" placeholder="Your Answer" class="scenario-answer-text"><button class="add-question-btn" data-scenario-id="${scenario.id}">Add Question</button></div>`;
                 scenariosListDiv.appendChild(scenarioDiv);
             });
             attachScenarioEventListeners();
@@ -184,19 +345,17 @@ export function initializeFrontendLogic() {
     async function addScenario(event) {
         event.preventDefault();
         const scenarioName = scenarioNameInput.value;
-        if (!scenarioName.trim()) {
-            alert("Please enter a scenario name.");
-            return;
-        }
+        if (!scenarioName.trim()) return alert("Please enter a scenario name.");
         try {
             const response = await fetch("http://localhost:8000/users/me/scenarios/", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Authorization": `Bearer ${currentUserToken}`},
                 body: JSON.stringify({ name: scenarioName, description: "" })
             });
-            if (!response.ok) throw new Error((await response.json()).detail || "Failed to create scenario");
+            if (!response.ok) throw new Error((await response.json()).detail || "Failed to create");
             scenarioNameInput.value = "";
             fetchAndDisplayScenarios();
+            populateScenarioSelect();
         } catch (error) {
             console.error("Error creating scenario:", error);
             alert(error.message);
@@ -204,28 +363,23 @@ export function initializeFrontendLogic() {
     }
 
     function toggleScenarioEditMode(event) {
-        const headerDiv = event.target.closest('.scenario-header');
-        if (headerDiv) {
-            headerDiv.classList.toggle('editing');
-        }
+        event.target.closest('.scenario-header').classList.toggle('editing');
     }
 
     async function updateScenario(event) {
         const headerDiv = event.target.closest('.scenario-header');
         const scenarioId = headerDiv.dataset.scenarioId;
         const newName = headerDiv.querySelector('.edit-scenario-name-input').value;
-        if (!newName.trim()) {
-            alert("Scenario name cannot be empty.");
-            return;
-        }
+        if (!newName.trim()) return alert("Scenario name cannot be empty.");
         try {
             const response = await fetch(`http://localhost:8000/users/me/scenarios/${scenarioId}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentUserToken}` },
+                headers: { 'Content-Type': 'application/json', "Authorization": `Bearer ${currentUserToken}` },
                 body: JSON.stringify({ name: newName })
             });
-            if (!response.ok) throw new Error((await response.json()).detail || 'Failed to update scenario.');
+            if (!response.ok) throw new Error((await response.json()).detail || 'Failed to update');
             fetchAndDisplayScenarios();
+            populateScenarioSelect();
         } catch (error) {
             console.error('Error updating scenario:', error);
             alert(error.message);
@@ -240,26 +394,22 @@ export function initializeFrontendLogic() {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${currentUserToken}` }
             });
-            if (!response.ok) throw new Error((await response.json()).detail || 'Failed to delete scenario.');
+            if (!response.ok) throw new Error((await response.json()).detail || 'Failed to delete');
             fetchAndDisplayScenarios();
+            populateScenarioSelect();
         } catch (error) {
             console.error('Error deleting scenario:', error);
             alert(error.message);
         }
     }
 
-    // --- Question Management ---
     async function addQuestionToScenario(event) {
         const button = event.target;
         const scenarioId = button.dataset.scenarioId;
         const form = button.closest('.add-question-form');
         const questionText = form.querySelector('.scenario-question-text').value;
         const userAnswerText = form.querySelector('.scenario-answer-text').value;
-
-        if (!questionText.trim() || !userAnswerText.trim()) {
-            alert("Please fill in both the question and answer.");
-            return;
-        }
+        if (!questionText.trim() || !userAnswerText.trim()) return alert("Please fill in both fields.");
         try {
             const response = await fetch(`http://localhost:8000/users/me/scenarios/${scenarioId}/questions/`, {
                 method: "POST",
@@ -275,10 +425,7 @@ export function initializeFrontendLogic() {
     }
 
     function toggleQuestionEditMode(event) {
-        const questionLi = event.target.closest('li');
-        if (questionLi) {
-            questionLi.classList.toggle('editing');
-        }
+        event.target.closest('li').classList.toggle('editing');
     }
 
     async function updateQuestion(event) {
@@ -286,14 +433,13 @@ export function initializeFrontendLogic() {
         const questionId = questionLi.dataset.questionId;
         const newQuestionText = questionLi.querySelector('.edit-question-input').value;
         const newAnswerText = questionLi.querySelector('.edit-answer-input').value;
-
         try {
             const response = await fetch(`http://localhost:8000/users/me/questions/${questionId}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentUserToken}`},
+                headers: { 'Content-Type': 'application/json', "Authorization": `Bearer ${currentUserToken}`},
                 body: JSON.stringify({ question_text: newQuestionText, user_answer_text: newAnswerText })
             });
-            if (!response.ok) throw new Error((await response.json()).detail || 'Failed to update question.');
+            if (!response.ok) throw new Error((await response.json()).detail || 'Failed to update');
             fetchAndDisplayScenarios();
         } catch (error) {
             console.error('Error updating question:', error);
@@ -309,7 +455,7 @@ export function initializeFrontendLogic() {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${currentUserToken}` }
             });
-            if (!response.ok) throw new Error((await response.json()).detail || 'Failed to delete question.');
+            if (!response.ok) throw new Error((await response.json()).detail || 'Failed to delete');
             fetchAndDisplayScenarios();
         } catch (error) {
             console.error('Error deleting question:', error);
@@ -317,15 +463,12 @@ export function initializeFrontendLogic() {
         }
     }
 
-    // --- Preference Management ---
     async function fetchAndDisplayPreferences() {
         if (!currentUserToken) return;
         const preferencesListDiv = document.getElementById('preferences-list');
         try {
-            const response = await fetch("http://localhost:8000/users/me/preferences/", {
-                headers: { 'Authorization': `Bearer ${currentUserToken}` }
-            });
-            if (!response.ok) throw new Error((await response.json()).detail || "Failed to fetch preferences");
+            const response = await fetch("http://localhost:8000/users/me/preferences/", { headers: { 'Authorization': `Bearer ${currentUserToken}` } });
+            if (!response.ok) throw new Error((await response.json()).detail || "Failed to fetch");
             const preferences = await response.json();
             preferencesListDiv.innerHTML = '';
             const ul = document.createElement('ul');
@@ -333,16 +476,7 @@ export function initializeFrontendLogic() {
                 preferences.forEach(pref => {
                     const li = document.createElement('li');
                     li.dataset.preferenceId = pref.id;
-                    li.innerHTML = `
-                        <span class="preference-text">${pref.preference_text}</span>
-                        <div class="edit-form">
-                            <textarea class="edit-preference-textarea">${pref.preference_text}</textarea>
-                        </div>
-                        <button class="edit-preference-btn">Edit</button>
-                        <button class="save-preference-btn">Save</button>
-                        <button class="cancel-preference-edit-btn">Cancel</button>
-                        <button class="delete-preference-btn">Delete</button>
-                    `;
+                    li.innerHTML = `<span class="preference-text">${pref.preference_text}</span><div class="edit-form"><textarea class="edit-preference-textarea">${pref.preference_text}</textarea></div><button class="edit-preference-btn">Edit</button><button class="save-preference-btn">Save</button><button class="cancel-preference-edit-btn">Cancel</button><button class="delete-preference-btn">Delete</button>`;
                     ul.appendChild(li);
                 });
             }
@@ -358,19 +492,16 @@ export function initializeFrontendLogic() {
         event.preventDefault();
         const textInput = document.getElementById('preference-text-input');
         const preferenceText = textInput.value.trim();
-        if (!preferenceText) {
-            alert("Please enter a preference.");
-            return;
-        }
+        if (!preferenceText) return alert("Please enter a preference.");
         try {
             const response = await fetch("http://localhost:8000/users/me/preferences/", {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentUserToken}`},
+                headers: { 'Content-Type': 'application/json', "Authorization": `Bearer ${currentUserToken}`},
                 body: JSON.stringify({ preference_text: preferenceText })
             });
             if (!response.ok) {
                 const errorData = await response.json();
-                const errorMessage = errorData.detail?.[0]?.msg || errorData.detail || "Failed to add preference";
+                const errorMessage = errorData.detail?.[0]?.msg || errorData.detail || "Failed to add";
                 throw new Error(errorMessage);
             }
             textInput.value = '';
@@ -382,27 +513,21 @@ export function initializeFrontendLogic() {
     }
 
     function togglePreferenceEditMode(event) {
-        const preferenceLi = event.target.closest('li');
-        if (preferenceLi) {
-            preferenceLi.classList.toggle('editing');
-        }
+        event.target.closest('li').classList.toggle('editing');
     }
 
     async function updatePreference(event) {
         const preferenceLi = event.target.closest('li');
         const preferenceId = preferenceLi.dataset.preferenceId;
         const newText = preferenceLi.querySelector('.edit-preference-textarea').value;
-        if (!newText.trim()) {
-            alert("Preference text cannot be empty.");
-            return;
-        }
+        if (!newText.trim()) return alert("Preference text cannot be empty.");
         try {
             const response = await fetch(`http://localhost:8000/users/me/preferences/${preferenceId}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentUserToken}` },
+                headers: { 'Content-Type': 'application/json', "Authorization": `Bearer ${currentUserToken}` },
                 body: JSON.stringify({ preference_text: newText })
             });
-            if (!response.ok) throw new Error((await response.json()).detail || 'Failed to update preference.');
+            if (!response.ok) throw new Error((await response.json()).detail || 'Failed to update');
             fetchAndDisplayPreferences();
         } catch (error) {
             console.error('Error updating preference:', error);
@@ -411,86 +536,18 @@ export function initializeFrontendLogic() {
     }
 
     async function deletePreference(event) {
-        const preferenceId = event.target.dataset.preferenceId;
-        if (!confirm("Are you sure you want to delete this preference?")) return;
+        const preferenceId = event.target.closest('li').dataset.preferenceId;
+        if (!confirm("Are you sure?")) return;
         try {
             const response = await fetch(`http://localhost:8000/users/me/preferences/${preferenceId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${currentUserToken}` }
             });
-            if (!response.ok) throw new Error((await response.json()).detail || 'Failed to delete preference.');
+            if (!response.ok) throw new Error((await response.json()).detail || 'Failed to delete');
             fetchAndDisplayPreferences();
         } catch (error) {
             console.error('Error deleting preference:', error);
             alert(error.message);
         }
-    }
-
-    // --- Transcription Logic ---
-    startBtn.addEventListener("click", () => {
-        if (mediaRecorder && mediaRecorder.state === "recording") {
-            mediaRecorder.stop();
-            startBtn.textContent = "Start Transcription";
-        } else {
-            if (!currentUserToken) {
-                alert("You must be logged in to start transcription.");
-                return;
-            }
-            navigator.mediaDevices.getUserMedia({ audio: true })
-                .then(stream => {
-                    setupWebSocket(currentUserToken);
-                    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
-                    mediaRecorder.ondataavailable = event => {
-                        if (event.data.size > 0 && socket && socket.readyState === WebSocket.OPEN) {
-                            socket.send(event.data);
-                        }
-                    };
-                    mediaRecorder.start(1000);
-                    startBtn.textContent = "Stop Transcription";
-                    transcriptionDisplay.innerHTML = "";
-                    suggestionsContainer.innerHTML = "";
-                })
-                .catch(error => console.error("Microphone access error:", error));
-        }
-    });
-
-    function setupWebSocket(token) {
-        const wsUrl = `ws://localhost:8000/ws?token=${token}`;
-        socket = new WebSocket(wsUrl);
-        socket.onopen = () => statusDisplay.textContent = "Connected";
-        socket.onclose = () => {
-            statusDisplay.textContent = "Disconnected";
-            if (mediaRecorder && mediaRecorder.state === "recording") {
-                mediaRecorder.stop();
-                startBtn.textContent = "Start Transcription";
-            }
-        };
-        socket.onerror = (error) => console.error("WebSocket error:", error);
-        socket.onmessage = (event) => {
-            const message = event.data;
-            const [prefix, content] = message.split(/:(.*)/s);
-            if (prefix === "suggestions") {
-                const suggestions = JSON.parse(content);
-                suggestionsContainer.innerHTML = "";
-                suggestions.forEach(suggestion => {
-                    const button = document.createElement("button");
-                    button.textContent = suggestion;
-                    suggestionsContainer.appendChild(button);
-                });
-            } else {
-                let p = transcriptionDisplay.querySelector(`p[data-final='false']`);
-                if (!p) {
-                    p = document.createElement('p');
-                    p.dataset.final = 'false';
-                    p.style.color = '#888';
-                    transcriptionDisplay.appendChild(p);
-                }
-                p.textContent = content;
-                if (prefix === "final") {
-                    p.dataset.final = 'true';
-                    p.style.color = '#000';
-                }
-            }
-        };
     }
 }
