@@ -20,3 +20,5 @@ Thumbs.db
 .venv
 gcp-credentials.json
 firebase-credentials.json
+.tmp.drivedownload
+.tmp.driveupload
