@@ -1,123 +1,13 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SignConnect</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-
-    <h1>SignConnect</h1>
-
-    <div id="user-info-container" class="hidden">
-        <p><strong>User Status:</strong> <span id="user-status"></span></p>
-        <button id="logout-btn">Log Out</button>
-        <button id="toggle-view-btn">Manage Scenarios</button>
-    </div>
-
-    <div id="auth-container">
-        <h2>Auth</h2>
-        <input type="email" id="email" placeholder="Email" />
-        <input type="password" id="password" placeholder="Password" />
-        <button id="signup-btn">Sign Up</button>
-        <button id="login-btn">Log In</button>
-    </div>
-
-    <hr>
-
-    <div id="transcription-container" class="hidden">
-        <div id="scenario-selection-section">
-            <h4>Save Q&A to Scenario:</h4>
-            <select id="scenario-select-for-qa"></select>
-        </div>
-
-        <h2>Transcription</h2>
-        <button id="start-btn">Start Transcription</button>
-        <p><strong>Connection Status:</strong> <span id="status">Idle</span></p>
-        <div id="transcription-display"></div>
-        <h2>Suggestions:</h2>
-        <div id="suggestions-container">
-            </div>
-    </div>
-
-    <div id="management-container" class="hidden">
-        <h2>Manage Scenarios & Preferences</h2>
-
-        <hr>
-
-        <div id="preferences-section">
-            <h3>Your Preferences</h3>
-            <p>Share info about your life and preferences to get more helpful responses. Add new info here.</p>
-
-            <div id="preferences-list">
-                </div>
-
-        <div id="add-preference-form">
-            <textarea id="preference-text-input" placeholder="Add a preference. Share info about your life and preferences to get more helpful responses. Add new info here."></textarea>
-            <button id="add-preference-btn">Add Preference</button>
-        </div>
-        </div>
-
-
-        <div id="add-scenario-form">
-            <h3>Add New Scenario</h3>
-            <input type="text" id="scenario-name" placeholder="Scenario Name (e.g., Restaurant)">
-            <button id="add-scenario-btn">Add Scenario</button>
-        </div>
-
-        <hr>
-
-        <div id="scenarios-list">
-            <h3>Your Scenarios</h3>
-            </div>
-    </div>
-
-    <script type="module">
-      // Import the functions you need from the SDKs you need
-      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
-      import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
-      // Import the new function from script.js
-      import { initializeFrontendLogic } from "./script.js";
-
-
-       // --- New code to fetch Firebase config from backend ---
-       async function loadFirebaseConfigAndInitialize() {
-            try {
-                // Ensure this URL matches your backend's running port
-                const response = await fetch('http://localhost:8000/api/firebase-config');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                const firebaseConfig = await response.json();
-
-                // Initialize Firebase with the fetched config
-                const app = initializeApp(firebaseConfig);
-
-                // Make auth functions available globally
-                window.firebaseAuth = {
-                    getAuth,
-                    createUserWithEmailAndPassword,
-                    signInWithEmailAndPassword,
-                    onAuthStateChanged,
-                    signOut
-                };
-                window.firebaseApp = app;
-
-                console.log("Firebase successfully initialized with config from backend.");
-
-                // --- Call the new function from script.js AFTER Firebase is ready ---
-                initializeFrontendLogic();
-
-            } catch (error) {
-                console.error("Failed to load Firebase config or initialize Firebase:", error);
-                // Handle error gracefully in your UI, e.g., show an error message
-            }
-        }
-
-        // Call this function when your frontend application starts
-        loadFirebaseConfigAndInitialize();
-    </script>
-
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vite + React</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>
