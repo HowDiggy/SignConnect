@@ -42,19 +42,35 @@ SignConnect transforms spoken language into text in real-time and provides intel
 We are using a standard monorepo structure that cleanly separates the backend and frontend code.
 
 ```
-signconnect/
-├── .env.example           # Example for environment variables
-├── .gitignore             # Files and directories ignored by Git
-├── docker-compose.yml     # Defines our PostgreSQL service
-├── frontend/              # All frontend code
-│   ├── index.html
-│   ├── script.js
-│   └── style.css
-├── poetry.lock            # Exact versions of installed dependencies
-├── poetry.toml            # Poetry virtual environment configuration
-├── pyproject.toml         # Poetry project and dependency definitions
-├── README.md              # Main project overview and instructions
-├── ROADMAP.md             # Project vision, status, and future plans
+SignConnect/
+├── .env                  # Backend environment variables (ignored)
+├── .env.example          # Example environment variables
+├── .gitignore            # Files and directories ignored by Git
+├── backend.Dockerfile    # Dockerfile for the FastAPI backend service
+├── docker-compose.yml    # Defines and configures all services (db, backend, frontend)
+├── frontend.Dockerfile   # Dockerfile for the React frontend service
+├── gcp-credentials.json  # Google Cloud service account key (ignored)
+├── poetry.lock           # Exact versions of installed Python dependencies
+├── poetry.toml           # Poetry virtual environment configuration
+├── pyproject.toml        # Python project and dependency definitions
+├── README.md             # Main project overview and instructions
+├── ROADMAP.md            # Project vision, status, and future plans
+|
+├── frontend/             # All Frontend React code
+│   ├── .env.local        # Frontend environment variables (ignored)
+│   ├── index.html        # The single HTML page for the React app
+│   ├── package.json      # Frontend dependencies (npm)
+│   ├── vite.config.js    # Vite build tool configuration
+│   └── src/
+│       ├── App.jsx       # Main application component and state manager
+│       ├── main.jsx      # React application entry point
+│       ├── firebaseConfig.js # Firebase client-side initialization
+│       └── components/   # Reusable React UI components
+│           ├── Auth/
+│           ├── Controls/
+│           ├── Suggestions/
+│           └── TranscriptionDisplay/
+|
 ├── src/                   # All backend Python code
 │   └── signconnect/
 │       ├── core/          # Core configurations and settings
