@@ -23,4 +23,4 @@ firebase-credentials.json
 .tmp.drivedownload
 .tmp.driveupload
 # Python cache
-__pycache__/
+__pycache__
