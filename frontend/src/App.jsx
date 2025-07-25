@@ -8,30 +8,43 @@ import Suggestions from './components/Suggestions/Suggestions';
 import './App.css';
 
 function App() {
-  // The user state is now "lifted" to the App component
   const [user, setUser] = useState(null);
+  const [transcription, setTranscription] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
 
-  // This effect hook now runs in App, setting the user for the whole application
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
+      if (!currentUser) {
+        setTranscription('');
+        setSuggestions([]);
+      }
     });
-    // Cleanup subscription on component unmount
     return () => unsubscribe();
   }, []);
+
+  const handleNewTranscription = (transcriptPart) => {
+    setTranscription(prev => prev + transcriptPart + ' ');
+  };
+
+  const handleNewSuggestions = (newSuggestions) => {
+    setSuggestions(newSuggestions);
+  };
 
   return (
     <div className="app-container">
       <header>
         <h1>SignConnect</h1>
-        {/* We now pass the user object down to the Auth component as a prop */}
         <Auth user={user} />
       </header>
       <main>
-        {/* Later, we can pass the user object to these components as well */}
-        <TranscriptionDisplay />
-        <Suggestions />
-        <Controls user={user} />
+        <TranscriptionDisplay transcription={transcription} />
+        <Suggestions suggestions={suggestions} />
+        <Controls
+          user={user}
+          onNewTranscription={handleNewTranscription}
+          onNewSuggestions={handleNewSuggestions}
+        />
       </main>
     </div>
   );

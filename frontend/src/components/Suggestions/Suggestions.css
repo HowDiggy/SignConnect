@@ -1,0 +1,32 @@
+.suggestions-container {
+  width: 100%;
+  padding: 10px 20px;
+  box-sizing: border-box;
+  margin-top: 15px;
+}
+
+.suggestions-container h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.suggestions-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.suggestion-item {
+  padding: 8px 15px;
+  font-size: 16px;
+  background-color: #e7f3ff;
+  border: 1px solid #cce0ff;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.suggestion-item:hover {
+  background-color: #d0e7ff;
+}
