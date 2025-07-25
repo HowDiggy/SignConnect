@@ -59,6 +59,10 @@ def create_app(testing: bool = False) -> FastAPI:
     # (Keep your existing CORS middleware setup here)
     origins = [
         "http://localhost",
+        "http://localhost:55085", 
+        "http://127.0.0.1:55085",
+        "http://localhost:5173", 
+        "http://127.0.0.1:5173", 
         "http://localhost:63342",
         "http://127.0.0.1:63342",
         "https://signconnect.paulojauregui.com",

@@ -1,0 +1,50 @@
+.controls-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.controls-container button {
+  padding: 12px 25px;
+  font-size: 18px;
+  cursor: pointer;
+  border: 1px solid #888;
+  border-radius: 5px;
+}
+
+/* Style for when the buttons are disabled */
+.controls-container button:disabled {
+  background-color: #f0f0f0;
+  color: #aaa;
+  cursor: not-allowed;
+  border-color: #ccc;
+}
+
+.disabled-message {
+  font-size: 14px;
+  color: #777;
+}
+
+/* Add these styles to frontend/src/components/Controls/Controls.css */
+
+.button-group {
+  display: flex;
+  gap: 10px;
+}
+
+.status {
+  font-size: 16px;
+  font-family: monospace;
+}
+
+.status-connected {
+  color: #28a745; /* green */
+  font-weight: bold;
+}
+
+.status-disconnected {
+  color: #dc3545; /* red */
+  font-weight: bold;
+}
