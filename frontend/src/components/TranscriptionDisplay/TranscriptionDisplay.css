@@ -1,0 +1,16 @@
+.transcription-display-container {
+  width: 100%;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+.transcription-display-container textarea {
+  width: 100%;
+  height: 200px;
+  padding: 15px;
+  font-size: 1.2em;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-sizing: border-box;
+  resize: vertical;
+}
