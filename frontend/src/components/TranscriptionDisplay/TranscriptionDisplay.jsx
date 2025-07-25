@@ -1,9 +1,18 @@
+import React from 'react';
 import './TranscriptionDisplay.css';
 
-function TranscriptionDisplay() {
+/**
+ * Displays the real-time transcription text.
+ * @param {{ transcription: string }} props
+ */
+function TranscriptionDisplay({ transcription }) {
   return (
-    <div className="transcription-container">
-      Transcription Display Component
+    <div className="transcription-display-container">
+      <textarea
+        value={transcription}
+        readOnly
+        placeholder="Transcription will appear here..."
+      />
     </div>
   );
 }
