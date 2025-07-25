@@ -1,34 +1,39 @@
+# src/signconnect/firebase.py
+
 import firebase_admin
-from firebase_admin import credentials, auth
-from pathlib import Path
+from firebase_admin import auth, credentials
 
-# --- Corrected Path Logic ---
-# 1. Get the path to the current file (firebase.py)
-# 2. Get its parent directory (src/signconnect/)
-# 3. Get the parent of that (src/)
-# 4. Get the parent of that (the project root)
-ROOT_DIR = Path(__file__).parent.parent.parent
-
-# 5. Join the root directory path with your credentials filename
-cred_path = ROOT_DIR / "firebase-credentials.json"
-
-# --- Initialization ---
+# By not passing any arguments to initialize_app(), the SDK will automatically
+# look for the GOOGLE_APPLICATION_CREDENTIALS environment variable, which
+# is correctly set in your docker-compose.yml file.
 try:
-    cred = credentials.Certificate(cred_path)
-    firebase_admin.initialize_app(cred)
+    # Check if the app is already initialized to prevent errors during reloads
+    if not firebase_admin._apps:
+        firebase_admin.initialize_app()
+    print("Firebase Admin SDK initialized successfully.")
 except Exception as e:
     print(f"Failed to initialize Firebase: {e}")
-    print(f"Attempted to load credentials from: {cred_path.resolve()}")
-
+    # In a real production scenario, you might want to raise the exception
+    # to prevent the app from starting in a misconfigured state.
 
 def verify_firebase_token(token: str) -> dict | None:
     """
     Verifies a Firebase ID token and returns the user's decoded claims.
-    Returns None if the token is invalid.
+
+    Pre-conditions:
+    - Firebase Admin SDK must be initialized.
+    - The provided token must be a valid Firebase ID token string.
+
+    Post-conditions:
+    - Returns a dictionary of decoded claims if the token is valid.
+    - Returns None if the token is invalid or verification fails.
     """
+    if not token:
+        return None
     try:
         decoded_token = auth.verify_id_token(token)
         return decoded_token
     except Exception as e:
-        print(f"Failed to verify Firebase token: {e}")
+        # It's helpful to log the specific error during development
+        print(f"Error verifying Firebase token: {e}")
         return None
