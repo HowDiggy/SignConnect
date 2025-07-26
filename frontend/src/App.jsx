@@ -6,6 +6,7 @@ import Controls from './components/Controls/Controls';
 // Import our new component and remove the old one
 import ConversationView from './components/ConversationView/ConversationView';
 import Suggestions from './components/Suggestions/Suggestions';
+import UserInput from './components/UserInput/UserInput';
 import './App.css';
 
 function App() {
@@ -46,6 +47,14 @@ function App() {
     setSuggestions([]);
   };
 
+  // Create the new handler for the free response input
+  const handleUserMessageSend = (messageText) => {
+    const newMessage = { text: messageText, sender: 'user' };
+    setConversation(prev => [...prev, newMessage]);
+    // Clear suggestions, as the user has chosen their own path
+    setSuggestions([]);
+  };
+
 
   return (
     <div className="app-container">
@@ -60,6 +69,11 @@ function App() {
         <Suggestions
           suggestions={suggestions}
           onSelectSuggestion={handleSuggestionSelect}
+        />
+
+        <UserInput 
+          onSendMessage={handleUserMessageSend}
+          isDisabled={!conversation.length > 0} // Disable if conversation hasn't started
         />
         
         <Controls
