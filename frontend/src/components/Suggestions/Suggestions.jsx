@@ -1,7 +1,8 @@
 import React from 'react';
 import './Suggestions.css';
 
-function Suggestions({ suggestions }) {
+// Add the onSelectSuggestion prop
+function Suggestions({ suggestions, onSelectSuggestion }) {
   if (!suggestions || suggestions.length === 0) {
     return null;
   }
@@ -11,7 +12,12 @@ function Suggestions({ suggestions }) {
       <h3>Suggestions:</h3>
       <div className="suggestions-list">
         {suggestions.map((word, index) => (
-          <button key={index} className="suggestion-item">
+          // Add the onClick handler here
+          <button
+            key={index}
+            className="suggestion-item"
+            onClick={() => onSelectSuggestion(word)}
+          >
             {word}
           </button>
         ))}
