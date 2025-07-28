@@ -1,0 +1,62 @@
+.scenario-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.scenario-details {
+  flex-grow: 1;
+}
+
+.scenario-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.scenario-actions button {
+  background: none;
+  border: 1px solid #ccc;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.scenario-actions .delete-button {
+  color: #dc3545;
+  border-color: #dc3545;
+}
+
+/* Edit Form Styles */
+.edit-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.edit-form input,
+.edit-form textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #007bff;
+  border-radius: 5px;
+  box-sizing: border-box; /* Important for width */
+}
+
+.edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.edit-actions button {
+  padding: 5px 15px;
+  border-radius: 5px;
+  border: none;
+  cursor: pointer;
+}
+
+.edit-actions button[type="submit"] {
+  background-color: #28a745;
+  color: white;
+}
