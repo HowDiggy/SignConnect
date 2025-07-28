@@ -12,7 +12,7 @@ from ..dependencies import get_current_user
 
 # Create a new router object
 router = APIRouter(
-    prefix="/users/me/scenarios",
+    prefix="/api/users/me/scenarios",
     tags=["scenarios"],
 )
 # ADD THIS TEST ENDPOINT

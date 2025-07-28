@@ -1,0 +1,71 @@
+.preferences-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-description {
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 15px;
+}
+
+.add-preference-form {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.add-preference-form input {
+  flex-grow: 1;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+.add-preference-form button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  background-color: #007bff;
+  color: white;
+  cursor: pointer;
+}
+
+.add-preference-form button:disabled {
+  background-color: #ccc;
+}
+
+.preferences-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.preference-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #f0f0f0;
+  padding: 8px 12px;
+  border-radius: 5px;
+}
+
+.preference-item span {
+  flex-grow: 1;
+}
+
+.preference-item button {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  color: #888;
+  cursor: pointer;
+  padding: 0 5px;
+}
+
+.error-message {
+  color: #D8000C;
+  margin-bottom: 15px;
+}
