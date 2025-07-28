@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getScenarios, createScenario, updateScenario, deleteScenario } from '../../services/api';
+import QuestionItem from './QuestionItem'; // Import the new component
 import './Scenarios.css';
 
 function Scenarios() {
@@ -7,14 +8,15 @@ function Scenarios() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // State for the "create new" form
+  // State for forms
   const [newScenarioName, setNewScenarioName] = useState('');
   const [newScenarioDesc, setNewScenarioDesc] = useState('');
-
-  // State for inline editing
   const [editingId, setEditingId] = useState(null);
   const [editingName, setEditingName] = useState('');
   const [editingDesc, setEditingDesc] = useState('');
+
+  // State to track which scenario is expanded
+  const [activeScenarioId, setActiveScenarioId] = useState(null);
 
   const fetchScenarios = useCallback(async () => {
     try {
@@ -89,6 +91,10 @@ function Scenarios() {
     }
   };
 
+  const toggleScenario = (scenarioId) => {
+    setActiveScenarioId(prevId => (prevId === scenarioId ? null : scenarioId));
+  };
+
   return (
     <div className="scenarios-container">
       <form onSubmit={handleCreateScenario} className="scenario-form">
@@ -114,35 +120,43 @@ function Scenarios() {
       
       <div className="scenarios-list">
         {isLoading ? <p>Loading...</p> : scenarios.map(scenario => (
-          <div key={scenario.id} className="scenario-item">
-            {editingId === scenario.id ? (
-              <form onSubmit={handleUpdateScenario} className="edit-form">
-                <input
-                  type="text"
-                  value={editingName}
-                  onChange={(e) => setEditingName(e.target.value)}
-                />
-                <textarea
-                  value={editingDesc}
-                  onChange={(e) => setEditingDesc(e.target.value)}
-                  rows="2"
-                />
-                <div className="edit-actions">
-                  <button type="submit">Save</button>
-                  <button type="button" onClick={handleCancelEdit}>Cancel</button>
-                </div>
-              </form>
-            ) : (
-              <>
-                <div className="scenario-details">
-                  <h4 className="scenario-name">{scenario.name}</h4>
-                  <p className="scenario-description">{scenario.description}</p>
-                </div>
-                <div className="scenario-actions">
-                  <button onClick={() => handleEditClick(scenario)}>Edit</button>
-                  <button onClick={() => handleDeleteScenario(scenario.id)} className="delete-button">Delete</button>
-                </div>
-              </>
+          <div key={scenario.id} className="scenario-item-container">
+            <div className="scenario-item">
+              {editingId === scenario.id ? (
+                <form onSubmit={handleUpdateScenario} className="edit-form">
+                  <input
+                    type="text"
+                    value={editingName}
+                    onChange={(e) => setEditingName(e.target.value)}
+                  />
+                  <textarea
+                    value={editingDesc}
+                    onChange={(e) => setEditingDesc(e.target.value)}
+                    rows="2"
+                  />
+                  <div className="edit-actions">
+                    <button type="submit">Save</button>
+                    <button type="button" onClick={handleCancelEdit}>Cancel</button>
+                  </div>
+                </form>
+              ) : (
+                <>
+                  <div className="scenario-details" onClick={() => toggleScenario(scenario.id)}>
+                    <h4 className="scenario-name">{scenario.name}</h4>
+                    <p className="scenario-description">{scenario.description}</p>
+                  </div>
+                  <div className="scenario-actions">
+                    <button onClick={() => handleEditClick(scenario)}>Edit</button>
+                    <button onClick={() => handleDeleteScenario(scenario.id)} className="delete-button">Delete</button>
+                  </div>
+                </>
+              )}
+            </div>
+            {activeScenarioId === scenario.id && (
+              <QuestionItem
+                scenarioId={scenario.id}
+                initialQuestions={scenario.questions}
+              />
             )}
           </div>
         ))}
