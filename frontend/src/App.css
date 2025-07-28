@@ -1,0 +1,18 @@
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.settings-button {
+  background: none;
+  border: 1px solid #ccc;
+  padding: 8px 15px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.settings-button:hover {
+  background-color: #f0f0f0;
+}
