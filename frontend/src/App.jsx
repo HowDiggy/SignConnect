@@ -7,6 +7,7 @@ import Controls from './components/Controls/Controls';
 import ConversationView from './components/ConversationView/ConversationView';
 import Suggestions from './components/Suggestions/Suggestions';
 import UserInput from './components/UserInput/UserInput';
+import Settings from './components/Settings/Settings';
 import './App.css';
 
 function App() {
@@ -15,6 +16,7 @@ function App() {
   // Replace transcription state with conversation state
   const [conversation, setConversation] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // This logic is simplified from your previous file to focus on the conversation
   useEffect(() => {
@@ -60,7 +62,15 @@ function App() {
     <div className="app-container">
       <header>
         <h1>SignConnect</h1>
-        <Auth user={user} />
+        <div className="header-controls">
+          {/* Add the settings button here */}
+          {user && (
+            <button onClick={() => setIsSettingsOpen(true)} className="settings-button">
+              Settings
+            </button>
+          )}
+          <Auth user={user} />
+        </div>
       </header>
       <main>
         {/* Replace the old display with our new ConversationView */}
@@ -82,6 +92,7 @@ function App() {
           onNewSuggestions={handleNewSuggestions}
         />
       </main>
+       <Settings isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
     </div>
   );
 }

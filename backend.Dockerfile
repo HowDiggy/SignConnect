@@ -3,6 +3,9 @@
 # Use an official Python runtime as a parent image
 FROM python:3.12-slim
 
+# install curl to perform health check for backend service
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/get/lists/*
+
 # Set the working directory inside the container
 WORKDIR /app
 
