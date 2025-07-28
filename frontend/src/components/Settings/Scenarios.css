@@ -60,3 +60,15 @@
   background-color: #28a745;
   color: white;
 }
+
+.scenario-item-container {
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  overflow: hidden; /* Important for rounded corners on nested items */
+}
+
+.scenario-details {
+  cursor: pointer;
+  flex-grow: 1;
+}

@@ -79,3 +79,10 @@ export const deleteScenario = async (scenarioId) => {
     method: 'DELETE'
   });
 };
+
+export const createQuestionForScenario = async (scenarioId, questionData) => {
+  return await fetchAuthenticated(`/api/users/me/scenarios/${scenarioId}/questions/`, {
+    method: 'POST',
+    body: JSON.stringify(questionData)
+  });
+};
