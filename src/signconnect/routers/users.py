@@ -9,7 +9,7 @@ from ..dependencies import get_current_user
 
 # Add the prefix and tags for better organization
 router = APIRouter(
-    prefix="/users/me",
+    prefix="/api/users/me",
     tags=["users"],
 )
 

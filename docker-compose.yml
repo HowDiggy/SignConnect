@@ -33,6 +33,12 @@ services:
       - GOOGLE_APPLICATION_CREDENTIALS=/app/gcp-credentials.json
     depends_on:
       - db # This ensures the database starts before the backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     restart: unless-stopped
 
   # The Frontend Service (React + Vite)
@@ -48,7 +54,8 @@ services:
       # Exclude node_modules from being overwritten by the mount
       - /app/frontend/node_modules
     depends_on:
-      - backend # This ensures the backend starts before the frontend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

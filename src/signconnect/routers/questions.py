@@ -10,7 +10,7 @@ from ..db.database import get_db
 from ..dependencies import get_current_user
 
 router = APIRouter(
-    prefix="/users/me/questions",
+    prefix="/api/users/me/questions",
     tags=["questions"],
 )
 
