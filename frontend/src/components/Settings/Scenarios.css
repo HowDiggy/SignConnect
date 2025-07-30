@@ -1,11 +1,84 @@
+.scenarios-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.scenario-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.scenario-form h3 {
+  margin: 0 0 5px 0;
+  text-align: left;
+  font-size: 1.1rem; /* Standardized header size */
+  font-weight: 600;
+}
+
+.scenario-form input,
+.scenario-form textarea {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 0.9rem; /* Standardized input font size */
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.scenario-form button {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 5px;
+  background-color: #28a745;
+  color: white;
+  font-size: 0.9rem; /* Standardized button font size */
+  cursor: pointer;
+  align-self: flex-end;
+  width: auto;
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid #eee;
+  margin: 20px 0;
+}
+
+.scenarios-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.scenario-item-container {
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
 .scenario-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 15px;
 }
 
 .scenario-details {
+  cursor: pointer;
   flex-grow: 1;
+}
+
+.scenario-name {
+  margin: 0 0 5px 0;
+  font-size: 1rem; /* Standardized title size */
+}
+
+.scenario-description {
+  margin: 0;
+  font-size: 0.9rem; /* Standardized description size */
+  color: #6c757d;
 }
 
 .scenario-actions {
@@ -19,6 +92,7 @@
   padding: 5px 10px;
   border-radius: 5px;
   cursor: pointer;
+  font-size: 0.rem; /* Standardized action button size */
 }
 
 .scenario-actions .delete-button {
@@ -26,7 +100,6 @@
   border-color: #dc3545;
 }
 
-/* Edit Form Styles */
 .edit-form {
   width: 100%;
   display: flex;
@@ -40,7 +113,8 @@
   padding: 8px;
   border: 1px solid #007bff;
   border-radius: 5px;
-  box-sizing: border-box; /* Important for width */
+  box-sizing: border-box;
+  font-size: 0.9rem; /* Standardized edit font size */
 }
 
 .edit-actions {
@@ -54,21 +128,10 @@
   border-radius: 5px;
   border: none;
   cursor: pointer;
+  font-size: 0.9rem; /* Standardized edit button size */
 }
 
 .edit-actions button[type="submit"] {
   background-color: #28a745;
   color: white;
-}
-
-.scenario-item-container {
-  background-color: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: 8px;
-  overflow: hidden; /* Important for rounded corners on nested items */
-}
-
-.scenario-details {
-  cursor: pointer;
-  flex-grow: 1;
 }
