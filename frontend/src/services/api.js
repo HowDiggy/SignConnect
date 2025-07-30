@@ -86,3 +86,19 @@ export const createQuestionForScenario = async (scenarioId, questionData) => {
     body: JSON.stringify(questionData)
   });
 };
+
+
+// --- Questions API ---
+export const updateQuestion = async (questionId, questionData) => {
+  return await fetchAuthenticated(`/api/users/me/questions/${questionId}`, {
+    method: 'PUT',
+    body: JSON.stringify(questionData)
+  });
+};
+
+export const deleteQuestion = async (questionId) => {
+  await fetchAuthenticated(`/api/users/me/questions/${questionId}`, {
+    method: 'DELETE'
+  });
+  return null;
+};
