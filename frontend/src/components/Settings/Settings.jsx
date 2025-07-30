@@ -5,6 +5,7 @@ import './Settings.css';
 // import Preferences from './Preferences';
 import Preferences from './Preferences';
 // import Scenarios from './Scenarios';
+import Scenarios from './Scenarios';
 
 function Settings({ isOpen, onClose }) {
   const [activeTab, setActiveTab] = useState('preferences');
@@ -35,7 +36,7 @@ function Settings({ isOpen, onClose }) {
           </div>
           <div className="tab-content">
             {activeTab === 'preferences' && <Preferences />}
-            {activeTab === 'scenarios' && <p>Scenarios UI will go here.</p>}
+            {activeTab === 'scenarios' && <Scenarios />}
           </div>
         </div>
       </div>
