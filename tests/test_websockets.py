@@ -1,91 +1,62 @@
 # tests/test_websockets.py
 
-import json
-import base64
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import MagicMock
+
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from signconnect import schemas, crud
-from signconnect.db import models
+# Import the actual dependency we want to override
+from src.signconnect.dependencies import get_llm_client
 
 
-@patch('src.signconnect.routers.websockets.speech.SpeechAsyncClient')
 def test_websocket_connect_and_disconnect(
-        mock_speech_client: MagicMock,
-        authenticated_client: TestClient,
-        db_session: Session
+    authenticated_client: TestClient,
 ):
     """
-    GIVEN an authenticated client,
-    WHEN they attempt to connect to the WebSocket endpoint,
-    THEN the connection should be accepted and then closed cleanly.
+    Tests that a client can successfully connect and disconnect.
+    No mocking is needed as this just tests the connection lifecycle.
     """
-    try:
-        with authenticated_client.websocket_connect("/ws") as websocket:
-            # The successful connection is the test.
-            print("\n--- WebSocket connection successful ---")
-    except Exception as e:
-        assert False, f"WebSocket connection failed with an exception: {e}"
+    # The 'with' statement handles both connecting and cleanly disconnecting.
+    # If this code runs without raising an exception, the test passes.
+    with authenticated_client.websocket_connect("/ws/some_user_id") as websocket:
+        assert websocket.scope["path"] == "/api/ws/some_user_id"
 
 
-@patch('src.signconnect.routers.websockets.crud.find_similar_question')
-@patch('src.signconnect.routers.websockets.get_response_suggestions')
-@patch('src.signconnect.routers.websockets.speech.SpeechAsyncClient')
 def test_websocket_sends_and_receives_messages(
-        mock_speech_client: MagicMock,
-        mock_llm_client: MagicMock,
-        mock_find_similar: MagicMock,
-        authenticated_client: TestClient,
-        db_session: Session
+    authenticated_client: TestClient,
 ):
     """
-    GIVEN an active WebSocket connection,
-    WHEN the client sends audio data and requests suggestions,
-    THEN the server should send back a final transcript and suggestions.
+    Tests that the websocket correctly uses the GeminiClient to handle
+    and respond to messages.
     """
-    # ARRANGE
-    mock_llm_client.return_value = "Suggestion 1\nSuggestion 2"
-    mock_find_similar.return_value = models.ScenarioQuestion(
-        question_text="Fake similar question", user_answer_text="Fake answer"
-    )
+    # ARRANGE: Create a mock for the GeminiClient.
+    mock_gemini_client = MagicMock()
+    # Configure our mock to return a specific value when its method is called.
+    mock_gemini_client.generate_response.return_value = "This is a mock response."
 
-    mock_speech_instance = MagicMock()
-    mock_result = MagicMock()
-    mock_result.results = [MagicMock()]
-    mock_result.results[0].is_final = True
-    final_transcript_text = "This is a final transcript."
-    mock_result.results[0].alternatives[0].transcript = final_transcript_text
+    # Get the app from the test client and override the dependency.
+    # Now, any call to the websocket endpoint will receive our mock client.
+    app = authenticated_client.app
+    app.dependency_overrides[get_llm_client] = lambda: mock_gemini_client
 
-    async def async_generator():
-        yield mock_result
+    try:
+        # ACT
+        with authenticated_client.websocket_connect("/ws/some_user_id") as websocket:
+            # Send a message from the client to the server.
+            websocket.send_text("Hello, this is a test.")
 
-    mock_speech_instance.streaming_recognize = AsyncMock(return_value=async_generator())
-    mock_speech_client.return_value = mock_speech_instance
+            # Wait for the server to send a response back.
+            response_text = websocket.receive_text()
 
-    # THE FIX: Add the required 'username' and 'password' fields.
-    crud.create_user(db_session, schemas.UserCreate(
-        email="newuser@example.com",
-        username="testuser",
-        password="password",
-        firebase_uid="fake-firebase-uid-123"
-    ))
+        # ASSERT
+        # Verify that the correct method on our mock client was called once.
+        mock_gemini_client.generate_response.assert_called_once_with(
+            "Hello, this is a test."
+        )
+        # Verify that the websocket sent back the value we told our mock to return.
+        assert response_text == "This is a mock response."
 
-    # ACT & ASSERT
-    with authenticated_client.websocket_connect("/ws") as websocket:
-        # 1. Send audio
-        audio_b64 = base64.b64encode(b'fake-audio-data').decode('utf-8')
-        websocket.send_json({"type": "audio", "data": audio_b64})
-
-        # 2. Receive transcript
-        final_transcript_data = websocket.receive_text()
-        assert final_transcript_data == f"final:{final_transcript_text}"
-
-        # 3. Request suggestions
-        websocket.send_json({"type": "get_suggestions", "transcript": final_transcript_text})
-
-        # 4. Receive suggestions
-        suggestions_data = websocket.receive_text()
-        assert suggestions_data.startswith("suggestions:")
-        suggestions_list = json.loads(suggestions_data.split("suggestions:", 1)[1])
-        assert suggestions_list == ["Suggestion 1", "Suggestion 2"]
+    finally:
+        # CLEANUP: It's critical to clear the override so it doesn't
+        # affect other tests.
+        app.dependency_overrides.clear()

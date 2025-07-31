@@ -74,19 +74,71 @@ def test_settings(monkeypatch, docker_ip, docker_services) -> Settings:
 
 
 @pytest.fixture(scope="function")
-def test_engine(test_settings, docker_services):
+def test_engine(test_settings: Settings, docker_ip: str, docker_services):
     """
-    Creates the SQLAlchemy engine for the test database.
-    This now runs for every function.
+    Handles the entire lifecycle of the test database for a single test function.
+    This fixture ensures all connections are closed before dropping the database.
     """
-    # THE FIX: Convert the PostgresDsn object to a string for create_engine
-    engine = create_engine(str(test_settings.DATABASE_URL))
-    docker_services.wait_until_responsive(
-        timeout=30.0, pause=0.5, check=lambda: _is_db_responsive(engine)
+    # --- 1. Define connection URLs ---
+    port = docker_services.port_for("test-db", 5432)
+    default_db_url = (
+        f"postgresql://{test_settings.POSTGRES_USER}:"
+        f"{test_settings.POSTGRES_PASSWORD.get_secret_value()}@"
+        f"{docker_ip}:{port}/postgres"
     )
-    Base.metadata.create_all(bind=engine)
-    yield engine
-    Base.metadata.drop_all(bind=engine)
+    test_db_url = (
+        f"postgresql://{test_settings.POSTGRES_USER}:"
+        f"{test_settings.POSTGRES_PASSWORD.get_secret_value()}@"
+        f"{docker_ip}:{port}/{test_settings.POSTGRES_DB}"
+    )
+
+    # --- 2. Wait for the PostgreSQL service to be responsive ---
+    default_engine = create_engine(default_db_url)
+    try:
+        docker_services.wait_until_responsive(
+            timeout=30.0, pause=0.5, check=lambda: _is_db_responsive(default_engine)
+        )
+    finally:
+        default_engine.dispose()
+
+    # --- 3. Create the test database ---
+    with create_engine(default_db_url, isolation_level="AUTOCOMMIT").connect() as conn:
+        conn.execute(text(f'DROP DATABASE IF EXISTS "{test_settings.POSTGRES_DB}"'))
+        conn.execute(text(f'CREATE DATABASE "{test_settings.POSTGRES_DB}"'))
+
+    # --- 4. Connect to the new DB to enable the vector extension ---
+    test_engine = create_engine(test_db_url)
+    with test_engine.connect() as conn:
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        conn.commit()
+
+    # --- 5. Create tables and yield the engine to the tests ---
+    try:
+        Base.metadata.create_all(bind=test_engine)
+        yield test_engine
+    finally:
+        # --- TEARDOWN ---
+        
+        # Step 1: Explicitly dispose of the test engine's connection pool.
+        # This is crucial to close connections held by the test session.
+        print("--- FIXTURE TEARDOWN: Disposing test engine connection pool... ---")
+        test_engine.dispose()
+
+        # Step 2: Connect to the default DB with a new engine to drop the test DB.
+        with create_engine(default_db_url, isolation_level="AUTOCOMMIT").connect() as conn:
+            # Step 3 (Safety): Forcibly terminate any other lingering connections.
+            print("--- FIXTURE TEARDOWN: Terminating any stray connections... ---")
+            conn.execute(text(f"""
+                SELECT pg_terminate_backend(pg_stat_activity.pid)
+                FROM pg_stat_activity
+                WHERE pg_stat_activity.datname = '{test_settings.POSTGRES_DB}'
+                  AND pid <> pg_backend_pid();
+            """))
+            
+            # Step 4: Drop the database. This should now succeed.
+            print(f"--- FIXTURE TEARDOWN: Dropping database {test_settings.POSTGRES_DB} ---")
+            conn.execute(text(f'DROP DATABASE "{test_settings.POSTGRES_DB}"'))
+
 
 
 @pytest.fixture(scope="function")
@@ -135,7 +187,7 @@ def authenticated_client(client: TestClient) -> TestClient:
     Provides a TestClient that is pre-authenticated with a mock user.
     """
     FAKE_FIREBASE_USER = {
-        "email": "testuser@example.com",
+        "email": "newuser@example.com",
         "name": "Test User",
         "uid": "fake-firebase-uid-123",
     }
@@ -145,5 +197,7 @@ def authenticated_client(client: TestClient) -> TestClient:
 
     app = client.app
     app.dependency_overrides[get_current_user] = override_get_current_user
+
+    client = TestClient(app, base_url="http://testserver/api")
 
     return client

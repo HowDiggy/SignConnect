@@ -27,34 +27,42 @@ def test_full_transcription_and_vector_search(
     # ARRANGE
     # 1. Get the mock user's ID from the authenticated client's dependency override
     # Corrected: Use the imported dependency function as the key
-    user_id = authenticated_client.app.dependency_overrides[get_current_user]()["uid"]
+    firebase_uid = authenticated_client.app.dependency_overrides[get_current_user]()["uid"]
+
+    # 2. FIX: Create the user in the database first to get a real user ID
+    user = crud.create_user(db_session, schemas.UserCreate(
+        email="testuser@example.com",  # Use a consistent test email
+        username="Test User",
+        password="password",
+        firebase_uid=firebase_uid
+    ))
 
     # 2. Create scenarios and questions in the database
     # Corrected: Use the schemas module to access the Pydantic models
-    scenario1 = crud.create_scenario_for_user(
+    scenario1 = crud.create_scenario(
         db=db_session,
-        user_id=user_id,
+        user_id=user.id,
         scenario=schemas.ScenarioCreate(name="Coffee Shop Order"),
     )
-    crud.create_question_for_scenario(
+    crud.create_scenario_question(
         db=db_session,
         scenario_id=scenario1.id,
-        question=schemas.QuestionCreate(
+        question=schemas.ScenarioQuestionCreate(
             question_text="What are your dairy-free milk options?",
             user_answer_text="I'd like to know about your alternative milks.",
             embedding=[0.1, 0.2, 0.3],  # Dummy embedding
         ),
     )
 
-    scenario2 = crud.create_scenario_for_user(
+    scenario2 = crud.create_scenario(
         db=db_session,
-        user_id=user_id,
+        user_id=user.id,
         scenario=schemas.ScenarioCreate(name="Doctor's Appointment"),
     )
-    crud.create_question_for_scenario(
+    crud.create_scenario_question(
         db=db_session,
         scenario_id=scenario2.id,
-        question=schemas.QuestionCreate(
+        question=schemas.ScenarioQuestionCreate(
             question_text="What are the side effects of this medication?",
             user_answer_text="Can you tell me about the side effects?",
             embedding=[0.7, 0.8, 0.9],  # Dummy embedding
@@ -68,7 +76,7 @@ def test_full_transcription_and_vector_search(
     # ACT
     # For this integration test, we call the CRUD function directly.
     similar_question = crud.find_similar_question(
-        db=db_session, query_text=new_transcript, user_id=user_id
+        db=db_session, query_text=new_transcript, user_id=user.id
     )
 
     # ASSERT
