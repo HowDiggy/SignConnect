@@ -50,7 +50,8 @@ async def websocket_endpoint(
     """
     try:
         # Authenticate the user via the token
-        user = get_current_user(token_from_query=token)
+        # FIX: Added 'await' to the async dependency call
+        user = await get_current_user(token_from_query=token)
         if not user:
             await websocket.close(code=1008)
             return
@@ -71,8 +72,12 @@ async def websocket_endpoint(
 
             if transcript:
                 # 1. Get user preferences from the database
-                preferences_db = crud.get_user_preferences(db, user_id=user_id)
-                preference_texts = [p.preference_text for p in preferences_db]
+                db_user = crud.get_user_by_email(db, email=user["email"])
+                if db_user:
+                    preferences_db = crud.get_user_preferences(db, user_id=db_user.id)
+                    preference_texts = [p.preference_text for p in preferences_db]
+                else:
+                    preference_texts = []
 
                 # 2. Get suggestions from the LLM via the injected client
                 suggestions = llm_client.get_response_suggestions(
@@ -92,4 +97,3 @@ async def websocket_endpoint(
     except Exception as e:
         print(f"An error occurred in the WebSocket endpoint: {e}")
         manager.disconnect(user_id)
-
