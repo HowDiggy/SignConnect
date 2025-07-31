@@ -27,7 +27,7 @@ def test_full_transcription_and_vector_search(
     # ARRANGE
     # 1. Get the mock user's ID from the authenticated client's dependency override
     # Corrected: Use the imported dependency function as the key
-    firebase_uid = authenticated_client.app.dependency_overrides[get_current_user]()["uid"]
+    firebase_uid = authenticated_client.user["uid"]
 
     # 2. FIX: Create the user in the database first to get a real user ID
     user = crud.create_user(db_session, schemas.UserCreate(

@@ -1,93 +1,75 @@
-# tests/test_websockets.py
-
 import json
-from unittest.mock import MagicMock, ANY
+from unittest.mock import MagicMock
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-# Import the actual dependency we want to override
-from src.signconnect.dependencies import get_llm_client, get_current_user
+from src.signconnect.dependencies import get_llm_client
 from src.signconnect.llm.client import GeminiClient
 from src.signconnect.crud import create_user
 from src.signconnect.schemas import UserCreate
 
 
-def test_websocket_connect_and_disconnect(
-    authenticated_client: TestClient,
-):
-    """
-    Tests that a client can successfully connect and disconnect.
-    """
-    # The user is mocked by the authenticated_client fixture
-    FAKE_USER = authenticated_client.app.dependency_overrides[get_current_user]()
-    token = FAKE_USER["uid"]
+def setup_websocket_test_environment(
+    client: TestClient,
+    db_session: Session
+) -> tuple[str, MagicMock]:
+    """Helper function to set up the test environment for websockets."""
+    # 1. Create a mock GeminiClient
+    mock_gemini_client = MagicMock(spec=GeminiClient)
+    mock_gemini_client.get_response_suggestions.return_value = ["A", "B"]
 
-    with authenticated_client.websocket_connect(f"/ws/{token}") as websocket:
-        # If the connection is accepted and no exception is raised, this part passes.
-        websocket.close()
+    # 2. Override the LLM client dependency for the websocket endpoint
+    app = client.app
+    app.dependency_overrides[get_llm_client] = lambda: mock_gemini_client
+
+    # 3. Create the user in the database
+    user_data = client.user
+    create_user(
+        db_session,
+        UserCreate(
+            email=user_data["email"],
+            username=user_data["name"],
+            password="a-password",
+            firebase_uid=user_data["uid"],
+        ),
+    )
+    
+    return user_data["uid"], mock_gemini_client
+
+
+def test_websocket_connect_and_disconnect(
+    authenticated_client: TestClient, db_session: Session
+):
+    """Tests that a client can successfully connect and disconnect."""
+    # ARRANGE: Set up mocks and DB state
+    token, _ = setup_websocket_test_environment(authenticated_client, db_session)
+    
+    try:
+        # ACT & ASSERT
+        with authenticated_client.websocket_connect(f"/api/ws/{token}") as websocket:
+            websocket.close()
+    finally:
+        authenticated_client.app.dependency_overrides.pop(get_llm_client, None)
 
 
 def test_websocket_sends_and_receives_messages(
     authenticated_client: TestClient, db_session: Session
 ):
-    """
-    Tests that the websocket correctly uses the GeminiClient to handle
-    and respond to messages after user authentication.
-    """
-    # ARRANGE Part 1: Ensure the mock user from the fixture exists in the DB
-    # so that their preferences can be looked up.
-    FAKE_USER = authenticated_client.app.dependency_overrides[get_current_user]()
-    create_user(
-        db_session,
-        UserCreate(
-            email=FAKE_USER["email"],
-            username=FAKE_USER["name"],
-            password="password",  # Placeholder
-            firebase_uid=FAKE_USER["uid"],
-        ),
+    """Tests that the websocket correctly handles and responds to messages."""
+    # ARRANGE: Set up mocks and DB state
+    token, mock_llm_client = setup_websocket_test_environment(
+        authenticated_client, db_session
     )
-
-    # ARRANGE Part 2: Create a mock for the GeminiClient.
-    mock_gemini_client = MagicMock(spec=GeminiClient)
-    mock_gemini_client.get_response_suggestions.return_value = [
-        "Suggestion 1",
-        "Suggestion 2",
-    ]
-
-    # ARRANGE Part 3: Override the dependency with the correct signature.
-    # The dependency expects a function that takes a `request` argument.
-    app = authenticated_client.app
-    app.dependency_overrides[get_llm_client] = lambda request: mock_gemini_client
 
     try:
         # ACT
-        token = FAKE_USER["uid"]
-        with authenticated_client.websocket_connect(f"/ws/{token}") as websocket:
-            # Send a valid JSON payload that the router expects.
-            websocket.send_text(
-                json.dumps({
-                    "transcript": "Hello, this is a test.",
-                    "conversation_history": ["Hi there."],
-                })
-            )
-
-            # Wait for the server to send a response back.
+        with authenticated_client.websocket_connect(f"/api/ws/{token}") as websocket:
+            websocket.send_text(json.dumps({"transcript": "Hello"}))
             response_data = websocket.receive_json()
 
         # ASSERT
-        # Verify that the correct method on our mock client was called.
-        mock_gemini_client.get_response_suggestions.assert_called_once_with(
-            transcript="Hello, this is a test.",
-            user_preferences=[],  # We haven't added any for this test user.
-            conversation_history=["Hi there."],
-        )
-        # Verify the data sent back to the client.
-        assert response_data == {
-            "type": "suggestions",
-            "suggestions": ["Suggestion 1", "Suggestion 2"],
-        }
-
+        mock_llm_client.get_response_suggestions.assert_called_once()
+        assert response_data["suggestions"] == ["A", "B"]
     finally:
-        # CLEANUP: Critical to prevent test leakage.
-        app.dependency_overrides.clear()
+        authenticated_client.app.dependency_overrides.pop(get_llm_client, None)

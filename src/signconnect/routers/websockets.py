@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from .. import crud
 # Import the new dependency and the client class
-from ..dependencies import get_current_user, get_db, get_llm_client
+from ..dependencies import get_current_user_ws, get_db, get_llm_client
 from ..llm.client import GeminiClient
 from ..schemas import User
 
@@ -37,28 +37,18 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-@router.websocket("/ws/{token}")
+@router.websocket("/api/ws/{token}")
 async def websocket_endpoint(
     websocket: WebSocket,
     token: str,
     db: Session = Depends(get_db),
     llm_client: GeminiClient = Depends(get_llm_client), # Add the new dependency
+    user: dict = Depends(get_current_user_ws),
 ):
     """
     Handles the WebSocket connection for real-time communication.
     Authenticates the user, manages the connection, and provides LLM suggestions.
     """
-    try:
-        # Authenticate the user via the token
-        # FIX: Added 'await' to the async dependency call
-        user = await get_current_user(token_from_query=token)
-        if not user:
-            await websocket.close(code=1008)
-            return
-    except Exception as e:
-        print(f"WebSocket authentication failed: {e}")
-        await websocket.close(code=1008)
-        return
 
     user_id = user["uid"]
     await manager.connect(user_id, websocket)

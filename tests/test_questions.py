@@ -40,7 +40,7 @@ def test_create_question_for_scenario(
 
     # ACT: Make the POST request to the nested endpoint.
     response = authenticated_client.post(
-        f"/users/me/scenarios/{parent_scenario.id}/questions/",
+        f"/api/users/me/scenarios/{parent_scenario.id}/questions/",
         json=question_data
     )
 
@@ -108,7 +108,7 @@ def test_cannot_create_question_for_another_users_scenario(
 
     # ACT: Make the POST request as User A to User B's scenario.
     response = authenticated_client.post(
-        f"/users/me/scenarios/{scenario_owned_by_b.id}/questions/",
+        f"/api/users/me/scenarios/{scenario_owned_by_b.id}/questions/",
         json=question_data
     )
 
@@ -160,7 +160,7 @@ def test_update_question(
 
     # ACT: Make the PUT request to the question's direct endpoint.
     response = authenticated_client.put(
-        f"/users/me/questions/{initial_question.id}",
+        f"/api/users/me/questions/{initial_question.id}",
         json=update_data
     )
 
@@ -217,7 +217,7 @@ def test_cannot_update_another_users_question(
 
     # ACT: User A attempts to update User B's question.
     response = authenticated_client.put(
-        f"/users/me/questions/{question_b.id}",
+        f"/api/users/me/questions/{question_b.id}",
         json=update_data
     )
 
@@ -267,7 +267,7 @@ def test_delete_question(
     assert db_session.query(models.ScenarioQuestion).filter(models.ScenarioQuestion.id == question_id).one_or_none() is not None
 
     # ACT: Make the DELETE request to the question's endpoint.
-    response = authenticated_client.delete(f"/users/me/questions/{question_id}")
+    response = authenticated_client.delete(f"/api/users/me/questions/{question_id}")
 
     # ASSERT Part 1: Check the API response.
     assert response.status_code == 200
@@ -314,7 +314,7 @@ def test_cannot_delete_another_users_question(
     )
 
     # ACT: User A attempts to delete User B's question.
-    response = authenticated_client.delete(f"/users/me/questions/{question_b.id}")
+    response = authenticated_client.delete(f"/api/users/me/questions/{question_b.id}")
 
     # ASSERT: The API should respond with 404 Not Found to prevent leaking information.
     assert response.status_code == 404
