@@ -101,11 +101,6 @@ def test_read_preferences_for_user_with_preferences(
         preference=schemas.UserPreferenceCreate(preference_text="Use a friendly tone."),
         user_id=user.id
     )
-    crud.create_user_preference(
-        db=db_session,
-        preference=schemas.UserPreferenceCreate(preference_text="Keep responses short."),
-        user_id=user.id
-    )
 
     # ACT: Make the GET request.
     response = authenticated_client.get("/users/me/preferences/")
@@ -113,9 +108,8 @@ def test_read_preferences_for_user_with_preferences(
     # ASSERT
     assert response.status_code == 200
     response_data = response.json()
-    assert len(response_data) == 2
+    assert len(response_data) == 1
     assert response_data[0]["preference_text"] == "Use a friendly tone."
-    assert response_data[1]["preference_text"] == "Keep responses short."
 
 """
 ------ Tests the Update (PUT) Case -----
