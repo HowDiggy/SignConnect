@@ -1,141 +1,149 @@
+# tests/conftest.py
+
 import pytest
 from pathlib import Path
-from pytest_docker import docker_ip, docker_services
+from typing import Generator
+from unittest.mock import MagicMock
+
 from fastapi.testclient import TestClient
+from pytest_docker import docker_ip, docker_services
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
-# We explicitly import all models here to ensure they are registered with the Base.
-from src.signconnect.db import models
+# --- Import from our app ---
 from src.signconnect.app_factory import create_app
-from src.signconnect.db.database import Base, get_db
-from src.signconnect.db.test_database import engine, TestingSessionLocal
-from src.signconnect.dependencies import get_current_user
+from src.signconnect.core.config import Settings
+from src.signconnect.db.database import Base
+from src.signconnect.dependencies import get_db, get_current_user
+from src.signconnect.llm.client import GeminiClient
+
+# Define the path to the root of the project.
+PROJECT_ROOT = Path(__file__).parent.parent
 
 
-# --- This fixture correctly points to your docker-compose.yml ---
 @pytest.fixture(scope="session")
-def docker_compose_file(pytestconfig):
-    """Override the default docker-compose.yml file path."""
-    # Point to our new test-specific file
-    return Path(pytestconfig.rootdir) / "docker-compose.test.yml"
+def docker_compose_file(pytestconfig) -> Path:
+    """
+    Returns the path to the docker-compose file used for testing.
+    This now points to our isolated test environment definition.
+    """
+    return PROJECT_ROOT / "docker-compose.test.yml"
 
 
-# --- This is the corrected version of the postgres_service fixture ---
-@pytest.fixture(scope="session")
-def postgres_service(docker_ip, docker_services):
-    """Ensure that the postgres service is running and responsive."""
-    port = docker_services.port_for("db", 5432)
-    host = docker_ip
-    docker_services.wait_until_responsive(
-        timeout=30.0, pause=0.5, check=lambda: is_postgres_responsive(host, port)
-    )
-    # THE FIX: Use the correct credentials
-    return f"postgresql://myuser:mypassword@{host}:{port}/signconnect_db"
-
-
-def is_postgres_responsive(host, port):
-    """Helper function to check if the PostgreSQL server is ready."""
+def _is_db_responsive(engine) -> bool:
+    """
+    Checks if the database is responsive by trying to establish a connection
+    and execute a simple query.
+    """
     try:
-        # THE FIX: Use the correct credentials
-        engine = create_engine(f"postgresql://myuser:mypassword@{host}:{port}/signconnect_db")
         with engine.connect() as connection:
             connection.execute(text("SELECT 1"))
-            return True
+        return True
     except Exception:
         return False
 
 
-# --- This fixture remains the same but will now work correctly ---
-@pytest.fixture(scope="session")
-def integration_db_session(postgres_service):
+@pytest.fixture(scope="function")
+def test_settings(monkeypatch, docker_ip, docker_services) -> Settings:
     """
-    Provides a clean, session-scoped database session for integration tests.
+    Creates a Settings object for the test environment by setting
+    environment variables and explicitly disabling .env file loading.
     """
-    engine = create_engine(postgres_service)
-    with engine.connect() as connection:
-        connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
-        connection.commit()
+    port = docker_services.port_for("test-db", 5432)
 
+    monkeypatch.setenv("POSTGRES_USER", "myuser")
+    monkeypatch.setenv("POSTGRES_PASSWORD", "mypassword")
+    monkeypatch.setenv("POSTGRES_DB", "test_db")
+    monkeypatch.setenv("POSTGRES_SERVER", docker_ip)
+    monkeypatch.setenv("POSTGRES_PORT", str(port))
+    monkeypatch.setenv("CLIENT_ORIGIN_URL", "http://test-client.com")
+    monkeypatch.setenv("FIREBASE_CLIENT_API_KEY", "fake-key")
+    monkeypatch.setenv("FIREBASE_CLIENT_AUTH_DOMAIN", "fake.firebaseapp.com")
+    monkeypatch.setenv("FIREBASE_CLIENT_PROJECT_ID", "fake-project")
+    monkeypatch.setenv("FIREBASE_CLIENT_STORAGE_BUCKET", "fake.appspot.com")
+    monkeypatch.setenv("FIREBASE_CLIENT_MESSAGING_SENDER_ID", "fake-sender-id")
+    monkeypatch.setenv("FIREBASE_CLIENT_APP_ID", "fake-app-id")
+    monkeypatch.setenv("FIREBASE_CLIENT_MEASUREMENT_ID", "fake-measurement-id")
+    monkeypatch.setenv("GEMINI_API_KEY", "fake-gemini-api-key")
+    
+    from src.signconnect.core.config import get_settings
+    get_settings.cache_clear()
+    
+    # Explicitly disable .env file loading to guarantee test isolation
+    return Settings(_env_file=None)
+
+
+@pytest.fixture(scope="function")
+def test_engine(test_settings, docker_services):
+    """
+    Creates the SQLAlchemy engine for the test database.
+    This now runs for every function.
+    """
+    # THE FIX: Convert the PostgresDsn object to a string for create_engine
+    engine = create_engine(str(test_settings.DATABASE_URL))
+    docker_services.wait_until_responsive(
+        timeout=30.0, pause=0.5, check=lambda: _is_db_responsive(engine)
+    )
     Base.metadata.create_all(bind=engine)
-    Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    session = Session()
-
-    yield session
-
-    session.close()
+    yield engine
     Base.metadata.drop_all(bind=engine)
 
-@pytest.fixture(scope="function", autouse=True)
-def set_test_environment(monkeypatch):
+
+@pytest.fixture(scope="function")
+def db_session_factory(test_engine):
     """
-    Sets the necessary environment variables before any tests run.
-    This fixture ensures tests are independent of any .env file.
+    Provides a sessionmaker for the test function.
     """
-    monkeypatch.setenv("DATABASE_URL", "sqlite:///./test_db_from_env.db")
-    monkeypatch.setenv("GOOGLE_APPLICATION_CREDENTIALS", "fake-credentials.json")
-    monkeypatch.setenv("GEMINI_API_KEY", "fake-api-key")
-    # Add any other required environment variables here
-    # monkeypatch.setenv("FIREBASE_CLIENT_API_KEY", "fake-api-key")
+    return sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
 
 @pytest.fixture(scope="function")
-def db_session() -> Session:
-    """Creates a fresh, isolated database session for each test."""
-    Base.metadata.create_all(bind=engine)
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-        Base.metadata.drop_all(bind=engine)
+def db_session(db_session_factory) -> Generator[Session, None, None]:
+    """
+    Provides a clean, transaction-isolated database session for each test function.
+    """
+    session = db_session_factory()
+    yield session
+    session.close()
 
 
 @pytest.fixture(scope="function")
-def client(db_session: Session) -> TestClient:
-    """Creates a TestClient with dependencies overridden for testing."""
-    app = create_app(testing=True)
-    app.dependency_overrides[get_db] = lambda: db_session
+def client(
+    db_session: Session, test_settings: Settings, monkeypatch
+) -> Generator[TestClient, None, None]:
+    """
+    Creates a TestClient and overrides dependencies for DB and LLM services.
+    """
+    mock_llm_client = MagicMock(spec=GeminiClient)
+    monkeypatch.setattr("src.signconnect.app_factory.GeminiClient", lambda api_key: mock_llm_client)
+
+    def override_get_db() -> Generator[Session, None, None]:
+        yield db_session
+
+    app = create_app(settings=test_settings, testing=True)
+    app.dependency_overrides[get_db] = override_get_db
+
     with TestClient(app) as test_client:
         yield test_client
+    
     app.dependency_overrides.clear()
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def authenticated_client(client: TestClient) -> TestClient:
-    """Provides a client that is pre-authenticated with a mock user."""
-    FAKE_FIREBASE_USER = {"email": "newuser@example.com", "name": "New User", "uid": "fake-firebase-uid-123"}
+    """
+    Provides a TestClient that is pre-authenticated with a mock user.
+    """
+    FAKE_FIREBASE_USER = {
+        "email": "testuser@example.com",
+        "name": "Test User",
+        "uid": "fake-firebase-uid-123",
+    }
+
     def override_get_current_user():
         return FAKE_FIREBASE_USER
+
     app = client.app
     app.dependency_overrides[get_current_user] = override_get_current_user
-    yield client
 
-
-@pytest.fixture(scope="function")
-def integration_client(
-        integration_db_session: Session,
-        monkeypatch  # We still need monkeypatch for the settings
-) -> TestClient:
-    """
-    Provides a TestClient that is fully configured for integration tests:
-    - Uses the real PostgreSQL database session.
-    - Has a mocked, authenticated user.
-    """
-    app = create_app(testing=True)
-
-    # Override the DB dependency to use the PostgreSQL session
-    app.dependency_overrides[get_db] = lambda: integration_db_session
-
-    # Mock the user authentication
-    FAKE_FIREBASE_USER = {"email": "newuser@example.com", "name": "New User", "uid": "fake-firebase-uid-123"}
-
-    def override_get_current_user():
-        return FAKE_FIREBASE_USER
-
-    app.dependency_overrides[get_current_user] = override_get_current_user
-
-    with TestClient(app) as test_client:
-        yield test_client
-
-    app.dependency_overrides.clear()
+    return client
