@@ -25,7 +25,7 @@ def test_read_scenarios_for_user_with_no_scenarios(
     # We just need to make the API call.
 
     # ACT
-    response = authenticated_client.get("/users/me/scenarios/")
+    response = authenticated_client.get("/api/users/me/scenarios/")
 
     # ASSERT
     assert response.status_code == 200
@@ -64,7 +64,7 @@ def test_read_scenarios_for_user_with_scenarios(
     )
 
     # ACT
-    response = authenticated_client.get("/users/me/scenarios/")
+    response = authenticated_client.get("/api/users/me/scenarios/")
 
     # ASSERT
     assert response.status_code == 200
@@ -97,7 +97,7 @@ def test_create_scenario_for_user(
     }
 
     # ACT: Make the POST request to the create scenario endpoint.
-    response = authenticated_client.post("/users/me/scenarios/", json=scenario_data)
+    response = authenticated_client.post("/api/users/me/scenarios/", json=scenario_data)
 
     # ASSERT Part 1: Check the API response.
     assert response.status_code == 200
@@ -153,7 +153,7 @@ def test_update_scenario(
 
     # ACT: Make the PUT request to the specific scenario's endpoint.
     response = authenticated_client.put(
-        f"/users/me/scenarios/{initial_scenario.id}",
+        f"/api/users/me/scenarios/{initial_scenario.id}",
         json=update_data
     )
 
@@ -206,7 +206,7 @@ def test_delete_scenario(
     assert db_session.query(models.Scenario).filter(models.Scenario.id == scenario_id).one_or_none() is not None
 
     # ACT: Make the DELETE request.
-    response = authenticated_client.delete(f"/users/me/scenarios/{scenario_id}")
+    response = authenticated_client.delete(f"/api/users/me/scenarios/{scenario_id}")
 
     # ASSERT Part 1: Check the API response.
     assert response.status_code == 200

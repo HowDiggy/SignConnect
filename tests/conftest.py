@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from src.signconnect.app_factory import create_app
 from src.signconnect.core.config import Settings
 from src.signconnect.db.database import Base
-from src.signconnect.dependencies import get_db, get_current_user
+from src.signconnect.dependencies import get_db, get_current_user, get_current_user_ws
 from src.signconnect.llm.client import GeminiClient
 
 # Define the path to the root of the project.
@@ -182,9 +182,10 @@ def client(
 
 
 @pytest.fixture(scope="function")
-def authenticated_client(client: TestClient) -> TestClient:
+def authenticated_client(client: TestClient) -> Generator[TestClient, None, None]:
     """
-    Provides a TestClient that is pre-authenticated with a mock user.
+    Provides a TestClient with mocked `get_current_user` and `get_current_user_ws`
+    dependencies, ensuring both REST and WebSocket endpoints are authenticated.
     """
     FAKE_FIREBASE_USER = {
         "email": "newuser@example.com",
@@ -192,12 +193,29 @@ def authenticated_client(client: TestClient) -> TestClient:
         "uid": "fake-firebase-uid-123",
     }
 
-    def override_get_current_user():
+    async def override_get_current_user():
         return FAKE_FIREBASE_USER
 
+    client.user = FAKE_FIREBASE_USER
     app = client.app
+
+    # Store original overrides to restore them cleanly
+    original_http_auth = app.dependency_overrides.get(get_current_user)
+    original_ws_auth = app.dependency_overrides.get(get_current_user_ws)
+
+    # FIX: Override BOTH authentication dependencies
     app.dependency_overrides[get_current_user] = override_get_current_user
+    app.dependency_overrides[get_current_user_ws] = override_get_current_user
 
-    client = TestClient(app, base_url="http://testserver/api")
+    yield client
 
-    return client
+    # CLEANUP: Restore both overrides to their original state
+    if original_http_auth:
+        app.dependency_overrides[get_current_user] = original_http_auth
+    else:
+        app.dependency_overrides.pop(get_current_user, None)
+    
+    if original_ws_auth:
+        app.dependency_overrides[get_current_user_ws] = original_ws_auth
+    else:
+        app.dependency_overrides.pop(get_current_user_ws, None)

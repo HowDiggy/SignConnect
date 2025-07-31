@@ -1,8 +1,9 @@
-from fastapi import Query, Header, Depends, HTTPException, Request
+from fastapi import Query, Header, Depends, HTTPException, Request, status
 from .firebase import verify_firebase_token
 from typing import Generator
 from sqlalchemy.orm import Session
 from .llm.client import GeminiClient
+from firebase_admin import auth
 
 
 def get_db() -> Generator[Session, None, None]:
@@ -50,3 +51,31 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     return user
+
+async def get_current_user_ws(
+    token: str, # Takes the token directly from the path
+    db: Session = Depends(get_db)
+) -> dict:
+    """
+    Dependency for authenticating WebSocket connections.
+    Verifies the Firebase ID token from the URL path.
+    """
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing authentication token",
+        )
+    try:
+        # This part remains the same, as it's just business logic.
+        decoded_token = auth.verify_id_token(token)
+        return decoded_token
+    except auth.InvalidIdTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token",
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not validate credentials",
+        )
