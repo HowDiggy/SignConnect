@@ -14,7 +14,7 @@ function Controls({ user, onNewTranscription, onNewSuggestions }) {
 
     // --- 1. Establish WebSocket Connection (Your existing logic) ---
     const token = await user.getIdToken();
-    const wsUrl = `ws://localhost:8000/ws?token=${token}`;
+    const wsUrl = `ws://localhost:8000/api/ws?token=${token}`;
     socketRef.current = new WebSocket(wsUrl);
 
     socketRef.current.onopen = () => {
