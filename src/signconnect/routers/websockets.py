@@ -6,14 +6,16 @@ from typing import List, Dict
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from sqlalchemy.orm import Session
-
+from google.cloud import speech
 from .. import crud
 # Import the new dependency and the client class
-from ..dependencies import get_current_user_ws, get_db, get_llm_client
+from ..dependencies import get_current_user_ws, get_db
 from ..llm.client import GeminiClient
 from ..schemas import User
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/api",
+)
 
 
 class ConnectionManager:
@@ -37,53 +39,91 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-@router.websocket("/api/ws/{token}")
+@router.websocket("/ws")
 async def websocket_endpoint(
     websocket: WebSocket,
-    token: str,
     db: Session = Depends(get_db),
-    llm_client: GeminiClient = Depends(get_llm_client), # Add the new dependency
     user: dict = Depends(get_current_user_ws),
 ):
     """
-    Handles the WebSocket connection for real-time communication.
-    Authenticates the user, manages the connection, and provides LLM suggestions.
+    Handles the WebSocket connection, including real-time audio transcription.
     """
+    await websocket.accept()
+    print(f"WebSocket connection accepted for user: {user.get('email')}")
 
-    user_id = user["uid"]
-    await manager.connect(user_id, websocket)
+    # Get the LLM client from the application state
+    llm_client: GeminiClient = websocket.app.state.llm_client
 
+    # Create a queue to hold audio chunks from the client
+    audio_queue = asyncio.Queue()
+
+    # Define the function that will process the audio stream
+    async def audio_processor():
+        # Configure the Google Cloud Speech-to-Text client
+        client = speech.SpeechAsyncClient()
+        config = speech.RecognitionConfig(
+            encoding=speech.RecognitionConfig.AudioEncoding.WEBM_OPUS,
+            sample_rate_hertz=48000,
+            language_code="en-US",
+            enable_automatic_punctuation=True,
+            model="latest_long",
+        )
+        streaming_config = speech.StreamingRecognitionConfig(
+            config=config, interim_results=True
+        )
+
+        # This generator feeds audio chunks from our queue to the Google API
+        async def request_generator():
+            yield speech.StreamingRecognizeRequest(streaming_config=streaming_config)
+            while True:
+                chunk = await audio_queue.get()
+                if chunk is None:
+                    break
+                yield speech.StreamingRecognizeRequest(audio_content=chunk)
+                audio_queue.task_done()
+
+        try:
+            # Start the streaming recognition
+            responses = await client.streaming_recognize(requests=request_generator())
+            
+            # Process the responses from the API
+            async for response in responses:
+                if not response.results:
+                    continue
+
+                result = response.results[0]
+                if not result.alternatives:
+                    continue
+
+                transcript = result.alternatives[0].transcript
+                
+                # Send the transcript back to the frontend
+                if result.is_final:
+                    print(f"Final transcript: {transcript}")
+                    await websocket.send_json({"type": "final_transcript", "data": transcript})
+                else:
+                    await websocket.send_json({"type": "interim_transcript", "data": transcript})
+
+        except Exception as e:
+            print(f"Error during transcription: {e}")
+        finally:
+            print("Audio processor finished.")
+
+    # Start the audio processing task in the background
+    process_task = asyncio.create_task(audio_processor())
+
+    # Main loop to receive audio data from the client
     try:
         while True:
-            data = await websocket.receive_text()
-            message_data = json.loads(data)
-            transcript = message_data.get("transcript", "")
-            conversation_history = message_data.get("conversation_history", [])
-
-            if transcript:
-                # 1. Get user preferences from the database
-                db_user = crud.get_user_by_email(db, email=user["email"])
-                if db_user:
-                    preferences_db = crud.get_user_preferences(db, user_id=db_user.id)
-                    preference_texts = [p.preference_text for p in preferences_db]
-                else:
-                    preference_texts = []
-
-                # 2. Get suggestions from the LLM via the injected client
-                suggestions = llm_client.get_response_suggestions(
-                    transcript=transcript,
-                    user_preferences=preference_texts,
-                    conversation_history=conversation_history,
-                )
-
-                # 3. Send the suggestions back to the client
-                await manager.send_personal_message(
-                    {"type": "suggestions", "suggestions": suggestions},
-                    websocket
-                )
-
+            # The frontend sends audio as bytes, so we use receive_bytes
+            audio_chunk = await websocket.receive_bytes()
+            await audio_queue.put(audio_chunk)
     except WebSocketDisconnect:
-        manager.disconnect(user_id)
-    except Exception as e:
-        print(f"An error occurred in the WebSocket endpoint: {e}")
-        manager.disconnect(user_id)
+        print("Client disconnected.")
+        # Signal the processor to stop by putting None in the queue
+        await audio_queue.put(None)
+    finally:
+        # Wait for the processor to finish cleanly
+        if not process_task.done():
+            process_task.cancel()
+        print("WebSocket connection closed.")

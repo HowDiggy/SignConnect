@@ -53,7 +53,7 @@ async def get_current_user(
     return user
 
 async def get_current_user_ws(
-    token: str, # Takes the token directly from the path
+    token: str | None = Query(None), # Takes the token directly from the path
     db: Session = Depends(get_db)
 ) -> dict:
     """
