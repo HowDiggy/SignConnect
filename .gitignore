@@ -24,3 +24,4 @@ firebase-credentials.json
 .tmp.driveupload
 # Python cache
 __pycache__
+.coverage*

@@ -10,10 +10,11 @@ from signconnect.db import models
 """
 --------- Test the READ (GET) Case --------
 """
+
+
 # Test Case 1: A user with no scenarios
 def test_read_scenarios_for_user_with_no_scenarios(
-        authenticated_client: TestClient,
-        db_session: Session
+    authenticated_client: TestClient, db_session: Session
 ):
     """
     GIVEN an authenticated user who has no scenarios in the database,
@@ -25,7 +26,7 @@ def test_read_scenarios_for_user_with_no_scenarios(
     # We just need to make the API call.
 
     # ACT
-    response = authenticated_client.get("/users/me/scenarios/")
+    response = authenticated_client.get("/api/users/me/scenarios/")
 
     # ASSERT
     assert response.status_code == 200
@@ -34,8 +35,7 @@ def test_read_scenarios_for_user_with_no_scenarios(
 
 # Test Case 2: A user with existing scenarios
 def test_read_scenarios_for_user_with_scenarios(
-        authenticated_client: TestClient,
-        db_session: Session
+    authenticated_client: TestClient, db_session: Session
 ):
     """
     GIVEN an authenticated user who has scenarios in the database,
@@ -47,7 +47,7 @@ def test_read_scenarios_for_user_with_scenarios(
         email="newuser@example.com",
         username="New User",
         password="password",
-        firebase_uid="fake-firebase-uid-123"  # Matches the authenticated_client mock
+        firebase_uid="fake-firebase-uid-123",  # Matches the authenticated_client mock
     )
     user = crud.create_user(db=db_session, user=user_to_create)
 
@@ -55,16 +55,18 @@ def test_read_scenarios_for_user_with_scenarios(
     crud.create_scenario(
         db=db_session,
         scenario=schemas.ScenarioCreate(name="Work Meetings", description="For my job"),
-        user_id=user.id
+        user_id=user.id,
     )
     crud.create_scenario(
         db=db_session,
-        scenario=schemas.ScenarioCreate(name="Doctor's Office", description="For appointments"),
-        user_id=user.id
+        scenario=schemas.ScenarioCreate(
+            name="Doctor's Office", description="For appointments"
+        ),
+        user_id=user.id,
     )
 
     # ACT
-    response = authenticated_client.get("/users/me/scenarios/")
+    response = authenticated_client.get("/api/users/me/scenarios/")
 
     # ASSERT
     assert response.status_code == 200
@@ -81,8 +83,7 @@ def test_read_scenarios_for_user_with_scenarios(
 
 
 def test_create_scenario_for_user(
-        authenticated_client: TestClient,
-        db_session: Session
+    authenticated_client: TestClient, db_session: Session
 ):
     """
     GIVEN an authenticated user,
@@ -93,11 +94,11 @@ def test_create_scenario_for_user(
     # ARRANGE: Define the data for the new scenario.
     scenario_data = {
         "name": "Coffee Shop Order",
-        "description": "For ordering my daily coffee"
+        "description": "For ordering my daily coffee",
     }
 
     # ACT: Make the POST request to the create scenario endpoint.
-    response = authenticated_client.post("/users/me/scenarios/", json=scenario_data)
+    response = authenticated_client.post("/api/users/me/scenarios/", json=scenario_data)
 
     # ASSERT Part 1: Check the API response.
     assert response.status_code == 200
@@ -108,7 +109,11 @@ def test_create_scenario_for_user(
 
     # ASSERT Part 2: Verify the scenario was actually saved to the database.
     scenario_id_from_response = uuid.UUID(response_data["id"])
-    db_scenario = db_session.query(models.Scenario).filter(models.Scenario.id == scenario_id_from_response).one_or_none()
+    db_scenario = (
+        db_session.query(models.Scenario)
+        .filter(models.Scenario.id == scenario_id_from_response)
+        .one_or_none()
+    )
 
     assert db_scenario is not None
     assert db_scenario.name == "Coffee Shop Order"
@@ -118,14 +123,13 @@ def test_create_scenario_for_user(
     assert user is not None
     assert db_scenario.user_id == user.id
 
+
 """
 --------- Test the UPDATE (PUT) Case ---------
 """
 
-def test_update_scenario(
-        authenticated_client: TestClient,
-        db_session: Session
-):
+
+def test_update_scenario(authenticated_client: TestClient, db_session: Session):
     """
     GIVEN an authenticated user with an existing scenario,
     WHEN they make a PUT request to update that scenario,
@@ -133,28 +137,30 @@ def test_update_scenario(
     AND the updated scenario data should be returned.
     """
     # ARRANGE: Create a user and an initial scenario to be updated.
-    user = crud.create_user(db_session, schemas.UserCreate(
-        email="newuser@example.com",
-        username="New User",
-        password="password",
-        firebase_uid="fake-firebase-uid-123"
-    ))
+    user = crud.create_user(
+        db_session,
+        schemas.UserCreate(
+            email="newuser@example.com",
+            username="New User",
+            password="password",
+            firebase_uid="fake-firebase-uid-123",
+        ),
+    )
     initial_scenario = crud.create_scenario(
         db=db_session,
         scenario=schemas.ScenarioCreate(name="Old Name", description="Old description"),
-        user_id=user.id
+        user_id=user.id,
     )
 
     # Define the update payload
     update_data = {
         "name": "Updated Scenario Name",
-        "description": "This is the new, updated description."
+        "description": "This is the new, updated description.",
     }
 
     # ACT: Make the PUT request to the specific scenario's endpoint.
     response = authenticated_client.put(
-        f"/users/me/scenarios/{initial_scenario.id}",
-        json=update_data
+        f"/api/users/me/scenarios/{initial_scenario.id}", json=update_data
     )
 
     # ASSERT Part 1: Check the API response.
@@ -169,6 +175,7 @@ def test_update_scenario(
     assert initial_scenario.name == "Updated Scenario Name"
     assert initial_scenario.description == "This is the new, updated description."
 
+
 """
 --------- Test the DELETE (DEL) Case ---------
 """
@@ -176,10 +183,8 @@ def test_update_scenario(
 
 # In tests/test_scenarios.py
 
-def test_delete_scenario(
-        authenticated_client: TestClient,
-        db_session: Session
-):
+
+def test_delete_scenario(authenticated_client: TestClient, db_session: Session):
     """
     GIVEN an authenticated user with an existing scenario,
     WHEN they make a DELETE request for that scenario,
@@ -187,26 +192,34 @@ def test_delete_scenario(
     AND the deleted scenario data should be returned.
     """
     # ARRANGE: Create a user and a scenario to be deleted.
-    user = crud.create_user(db_session, schemas.UserCreate(
-        email="newuser@example.com",
-        username="New User",
-        password="password",
-        firebase_uid="fake-firebase-uid-123"
-    ))
+    user = crud.create_user(
+        db_session,
+        schemas.UserCreate(
+            email="newuser@example.com",
+            username="New User",
+            password="password",
+            firebase_uid="fake-firebase-uid-123",
+        ),
+    )
     scenario_to_delete = crud.create_scenario(
         db=db_session,
         scenario=schemas.ScenarioCreate(name="To Be Deleted", description="Delete me"),
-        user_id=user.id
+        user_id=user.id,
     )
 
     # Get the ID *before* the object is deleted.
     scenario_id = scenario_to_delete.id
 
     # Verify the scenario exists in the DB before we delete it.
-    assert db_session.query(models.Scenario).filter(models.Scenario.id == scenario_id).one_or_none() is not None
+    assert (
+        db_session.query(models.Scenario)
+        .filter(models.Scenario.id == scenario_id)
+        .one_or_none()
+        is not None
+    )
 
     # ACT: Make the DELETE request.
-    response = authenticated_client.delete(f"/users/me/scenarios/{scenario_id}")
+    response = authenticated_client.delete(f"/api/users/me/scenarios/{scenario_id}")
 
     # ASSERT Part 1: Check the API response.
     assert response.status_code == 200
@@ -215,5 +228,9 @@ def test_delete_scenario(
     assert response_data["id"] == str(scenario_id)
 
     # ASSERT Part 2: Verify the scenario was actually deleted from the database.
-    db_scenario = db_session.query(models.Scenario).filter(models.Scenario.id == scenario_id).one_or_none()
+    db_scenario = (
+        db_session.query(models.Scenario)
+        .filter(models.Scenario.id == scenario_id)
+        .one_or_none()
+    )
     assert db_scenario is None
