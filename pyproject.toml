@@ -32,4 +32,4 @@ build-backend = "poetry.core.masonry.api"
 pytest = "^8.4.1"
 httpx = {extras = ["http2"], version = "^0.28.1"}
 pytest-docker = ">=2.0.0"
-
+pre-commit = "^4.2.0"
