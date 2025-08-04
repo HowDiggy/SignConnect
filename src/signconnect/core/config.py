@@ -4,6 +4,7 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 
+
 class Settings(BaseSettings):
     """
     Represents the application settings.
@@ -15,7 +16,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        case_sensitive=False, # allows for DATABASE_URL or database_url
+        case_sensitive=False,  # allows for DATABASE_URL or database_url
+        extra="ignore",
     )
 
     # define your settings here. Pydantic will automatically read
@@ -24,7 +26,6 @@ class Settings(BaseSettings):
     GOOGLE_APPLICATION_CREDENTIALS: str
     GEMINI_API_KEY: str
     FIREBASE_CLIENT_API_KEY: str
-
 
 
 # the @lru_cache decorator caches the Settings object. This means the .env file is
