@@ -82,8 +82,8 @@ def test_cannot_create_question_for_another_users_scenario(
     WHEN User A tries to POST a question to User B's scenario,
     THEN the API should return a 403 Forbidden error.
     """
-    # ARRANGE Part 1: Create two separate users.
-    # User A is the one making the request (from the authenticated_client fixture).
+    # # ARRANGE Part 1: Create two separate users.
+    # # User A is the one making the request (from the authenticated_client fixture).
     # user_a = crud.create_user(
     #     db_session,
     #     schemas.UserCreate(
@@ -198,16 +198,7 @@ def test_cannot_update_another_users_question(
     THEN the API should return a 404 Not Found error.
     """
     # ARRANGE: Create two users and a question owned by User B.
-    # User A is from the authenticated_client fixture.
-    crud.create_user(
-        db_session,
-        schemas.UserCreate(
-            email="newuser@example.com",
-            username="User A",
-            password="password",
-            firebase_uid="fake-firebase-uid-123",
-        ),
-    )
+
     user_b = crud.create_user(
         db_session,
         schemas.UserCreate(
