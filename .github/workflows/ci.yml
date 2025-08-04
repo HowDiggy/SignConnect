@@ -62,6 +62,9 @@ jobs:
         # Add all other required secrets/variables for tests
         SECRET_KEY: "a-test-secret-key-for-ci"
         DEBUG: "False"
+        GOOGLE_APPLICATION_CREDENTIALS: "false-gcp-credentials.json"
+        GEMINI_API_KEY: "fake-gemini-api-key"
+        FIREBASE_CLIENT_API_KEY: "fake-gemini-api-key"
         # This is critical for src layout
         PYTHONPATH: src
       run: |
