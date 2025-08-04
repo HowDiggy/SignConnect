@@ -1,12 +1,10 @@
 import pytest
 from pathlib import Path
-from pytest_docker import docker_ip, docker_services
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
 # We explicitly import all models here to ensure they are registered with the Base.
-from src.signconnect.db import models
 from src.signconnect.app_factory import create_app
 from src.signconnect.db.database import Base, get_db
 from src.signconnect.db.test_database import engine, TestingSessionLocal
@@ -25,24 +23,29 @@ def docker_compose_file(pytestconfig):
 @pytest.fixture(scope="session")
 def postgres_service(docker_ip, docker_services):
     """Ensure that the postgres service is running and responsive."""
-    port = docker_services.port_for("db", 5432)
+    # port = docker_services.port_for("test-db", 5432)
+    port = 5433
     host = docker_ip
     docker_services.wait_until_responsive(
         timeout=30.0, pause=0.5, check=lambda: is_postgres_responsive(host, port)
     )
     # THE FIX: Use the correct credentials
-    return f"postgresql://myuser:mypassword@{host}:{port}/signconnect_db"
+    return f"postgresql://myuser:mypassword@{host}:{port}/test_db"
 
 
 def is_postgres_responsive(host, port):
     """Helper function to check if the PostgreSQL server is ready."""
     try:
         # THE FIX: Use the correct credentials
-        engine = create_engine(f"postgresql://myuser:mypassword@{host}:{port}/signconnect_db")
+        engine = create_engine(
+            f"postgresql://myuser:mypassword@{host}:{port}/test_db",
+            connect_args={"connect_timeout": 1},
+        )
         with engine.connect() as connection:
             connection.execute(text("SELECT 1"))
             return True
-    except Exception:
+    except Exception as e:
+        print(f"Postgres connection failed: {e}")
         return False
 
 
@@ -65,6 +68,7 @@ def integration_db_session(postgres_service):
 
     session.close()
     Base.metadata.drop_all(bind=engine)
+
 
 @pytest.fixture(scope="function", autouse=True)
 def set_test_environment(monkeypatch):
@@ -104,9 +108,15 @@ def client(db_session: Session) -> TestClient:
 @pytest.fixture
 def authenticated_client(client: TestClient) -> TestClient:
     """Provides a client that is pre-authenticated with a mock user."""
-    FAKE_FIREBASE_USER = {"email": "newuser@example.com", "name": "New User", "uid": "fake-firebase-uid-123"}
+    FAKE_FIREBASE_USER = {
+        "email": "newuser@example.com",
+        "name": "New User",
+        "uid": "fake-firebase-uid-123",
+    }
+
     def override_get_current_user():
         return FAKE_FIREBASE_USER
+
     app = client.app
     app.dependency_overrides[get_current_user] = override_get_current_user
     yield client
@@ -114,8 +124,8 @@ def authenticated_client(client: TestClient) -> TestClient:
 
 @pytest.fixture(scope="function")
 def integration_client(
-        integration_db_session: Session,
-        monkeypatch  # We still need monkeypatch for the settings
+    integration_db_session: Session,
+    monkeypatch,  # We still need monkeypatch for the settings
 ) -> TestClient:
     """
     Provides a TestClient that is fully configured for integration tests:
@@ -128,7 +138,11 @@ def integration_client(
     app.dependency_overrides[get_db] = lambda: integration_db_session
 
     # Mock the user authentication
-    FAKE_FIREBASE_USER = {"email": "newuser@example.com", "name": "New User", "uid": "fake-firebase-uid-123"}
+    FAKE_FIREBASE_USER = {
+        "email": "newuser@example.com",
+        "name": "New User",
+        "uid": "fake-firebase-uid-123",
+    }
 
     def override_get_current_user():
         return FAKE_FIREBASE_USER
