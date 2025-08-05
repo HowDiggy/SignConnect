@@ -33,6 +33,7 @@ pytest = "^8.4.1"
 httpx = {extras = ["http2"], version = "^0.28.1"}
 pytest-docker = ">=2.0.0"
 pytest-cov = "^6.2.1"
+pre-commit = "^4.2.0"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

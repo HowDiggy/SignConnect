@@ -1,0 +1,69 @@
+name: Python CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+
+    services:
+      postgres:
+        image: ankane/pgvector
+        env:
+          POSTGRES_DB: test_db
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install system dependencies
+      run: sudo apt update && sudo apt install -y libpq-dev build-essential
+
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+
+    - name: Load cached venv
+      id: cached-poetry-dependencies
+      uses: actions/cache@v4
+      with:
+        path: .venv
+        key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+
+    - name: Install Dependencies
+      run: poetry install --no-interaction --no-root
+
+    - name: Run Tests
+      env:
+        DATABASE_URL: postgres://test_user:test_password@localhost:5432/test_db
+        SECRET_KEY: "a-test-secret-key-for-ci"
+        DEBUG: "False"
+        GOOGLE_APPLICATION_CREDENTIALS: "fake-gcp-credentials.json"
+        GEMINI_API_KEY: "fake-gemini-api-key"
+        FIREBASE_CLIENT_API_KEY: "fake-firebase-api-key"
+        PYTHONPATH: src
+      run: |
+        poetry run pytest
