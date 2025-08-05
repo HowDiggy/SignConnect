@@ -6,7 +6,6 @@ from typing import Generator
 from unittest.mock import MagicMock
 
 from fastapi.testclient import TestClient
-from pytest_docker import docker_ip, docker_services
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -65,10 +64,11 @@ def test_settings(monkeypatch, docker_ip, docker_services) -> Settings:
     monkeypatch.setenv("FIREBASE_CLIENT_APP_ID", "fake-app-id")
     monkeypatch.setenv("FIREBASE_CLIENT_MEASUREMENT_ID", "fake-measurement-id")
     monkeypatch.setenv("GEMINI_API_KEY", "fake-gemini-api-key")
-    
+
     from src.signconnect.core.config import get_settings
+
     get_settings.cache_clear()
-    
+
     # Explicitly disable .env file loading to guarantee test isolation
     return Settings(_env_file=None)
 
@@ -118,27 +118,32 @@ def test_engine(test_settings: Settings, docker_ip: str, docker_services):
         yield test_engine
     finally:
         # --- TEARDOWN ---
-        
+
         # Step 1: Explicitly dispose of the test engine's connection pool.
         # This is crucial to close connections held by the test session.
         print("--- FIXTURE TEARDOWN: Disposing test engine connection pool... ---")
         test_engine.dispose()
 
         # Step 2: Connect to the default DB with a new engine to drop the test DB.
-        with create_engine(default_db_url, isolation_level="AUTOCOMMIT").connect() as conn:
+        with create_engine(
+            default_db_url, isolation_level="AUTOCOMMIT"
+        ).connect() as conn:
             # Step 3 (Safety): Forcibly terminate any other lingering connections.
             print("--- FIXTURE TEARDOWN: Terminating any stray connections... ---")
-            conn.execute(text(f"""
+            conn.execute(
+                text(f"""
                 SELECT pg_terminate_backend(pg_stat_activity.pid)
                 FROM pg_stat_activity
                 WHERE pg_stat_activity.datname = '{test_settings.POSTGRES_DB}'
                   AND pid <> pg_backend_pid();
-            """))
-            
-            # Step 4: Drop the database. This should now succeed.
-            print(f"--- FIXTURE TEARDOWN: Dropping database {test_settings.POSTGRES_DB} ---")
-            conn.execute(text(f'DROP DATABASE "{test_settings.POSTGRES_DB}"'))
+            """)
+            )
 
+            # Step 4: Drop the database. This should now succeed.
+            print(
+                f"--- FIXTURE TEARDOWN: Dropping database {test_settings.POSTGRES_DB} ---"
+            )
+            conn.execute(text(f'DROP DATABASE "{test_settings.POSTGRES_DB}"'))
 
 
 @pytest.fixture(scope="function")
@@ -167,7 +172,9 @@ def client(
     Creates a TestClient and overrides dependencies for DB and LLM services.
     """
     mock_llm_client = MagicMock(spec=GeminiClient)
-    monkeypatch.setattr("src.signconnect.app_factory.GeminiClient", lambda api_key: mock_llm_client)
+    monkeypatch.setattr(
+        "src.signconnect.app_factory.GeminiClient", lambda api_key: mock_llm_client
+    )
 
     def override_get_db() -> Generator[Session, None, None]:
         yield db_session
@@ -177,7 +184,7 @@ def client(
 
     with TestClient(app) as test_client:
         yield test_client
-    
+
     app.dependency_overrides.clear()
 
 
@@ -214,7 +221,7 @@ def authenticated_client(client: TestClient) -> Generator[TestClient, None, None
         app.dependency_overrides[get_current_user] = original_http_auth
     else:
         app.dependency_overrides.pop(get_current_user, None)
-    
+
     if original_ws_auth:
         app.dependency_overrides[get_current_user_ws] = original_ws_auth
     else:
