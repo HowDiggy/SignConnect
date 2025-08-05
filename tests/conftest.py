@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 # --- Import from our app ---
 from src.signconnect.app_factory import create_app
-from src.signconnect.core.config import Settings
+from src.signconnect.core.config import Settings, get_settings
 from src.signconnect.db.database import Base
 from src.signconnect.dependencies import get_db, get_current_user, get_current_user_ws
 from src.signconnect.llm.client import GeminiClient
@@ -64,8 +64,6 @@ def test_settings(monkeypatch, docker_ip, docker_services) -> Settings:
     monkeypatch.setenv("FIREBASE_CLIENT_APP_ID", "fake-app-id")
     monkeypatch.setenv("FIREBASE_CLIENT_MEASUREMENT_ID", "fake-measurement-id")
     monkeypatch.setenv("GEMINI_API_KEY", "fake-gemini-api-key")
-
-    from src.signconnect.core.config import get_settings
 
     get_settings.cache_clear()
 
@@ -226,3 +224,143 @@ def authenticated_client(client: TestClient) -> Generator[TestClient, None, None
         app.dependency_overrides[get_current_user_ws] = original_ws_auth
     else:
         app.dependency_overrides.pop(get_current_user_ws, None)
+
+
+@pytest.fixture(scope="session")
+def postgres_service(docker_ip, docker_services):
+    """
+    Ensure that the postgres service is running and responsive.
+
+    This fixture is session-scoped, meaning it will start the Docker
+    container once at the beginning of the test session and stop it
+    at the very end.
+    """
+    # Use the port we mapped in the docker-compose.test.yml file
+    port = 5433
+    host = docker_ip
+
+    # Use wait_until_responsive to ensure the DB is ready before any tests run
+    docker_services.wait_until_responsive(
+        timeout=30.0, pause=0.5, check=lambda: is_postgres_responsive(host, port)
+    )
+
+    # Return the connection string for other fixtures to use
+    return f"postgresql://myuser:mypassword@{host}:{port}/test_db"
+
+
+# ADD THIS HELPER FUNCTION
+def is_postgres_responsive(host: str, port: int) -> bool:
+    """
+    Helper function to check if the PostgreSQL server is ready.
+
+    Args:
+        host: The database host IP.
+        port: The database port.
+
+    Returns:
+        True if the connection is successful, False otherwise.
+    """
+    try:
+        engine = create_engine(
+            f"postgresql://myuser:mypassword@{host}:{port}/test_db",
+            connect_args={"connect_timeout": 1},
+        )
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+        return True
+    except Exception:
+        return False
+
+
+@pytest.fixture(scope="function")
+def integration_db_session(integration_engine):
+    """
+    Provide a transactional session for a single integration test.
+    This ensures each test runs in isolation.
+    """
+    # The engine is already created and ready from the session-scoped fixture
+    SessionLocal = sessionmaker(
+        autocommit=False, autoflush=False, bind=integration_engine
+    )
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+@pytest.fixture(scope="function")
+def integration_client(
+    integration_db_session: Session,
+    test_settings: Settings,
+) -> Generator[TestClient, None, None]:
+    """
+    Provides a TestClient that is fully configured for integration tests:
+    - Uses the real PostgreSQL database session.
+    - Has a mocked, authenticated user.
+    """
+    app = create_app(settings=test_settings, testing=True)
+    app.dependency_overrides[get_db] = lambda: integration_db_session
+
+    FAKE_FIREBASE_USER = {
+        "email": "newuser@example.com",
+        "name": "New User",
+        "uid": "fake-firebase-uid-123",
+    }
+
+    def override_get_current_user():
+        return FAKE_FIREBASE_USER
+
+    app.dependency_overrides[get_current_user] = override_get_current_user
+
+    # The integration_client needs its own TestClient instance
+    with TestClient(app) as test_client:
+        yield test_client
+
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture(scope="session")
+def integration_engine(docker_ip, docker_services):
+    """
+    Creates and prepares the PostgreSQL database for the integration test session.
+    - Waits for the container's healthcheck.
+    - Connects to the default 'postgres' DB to create the test DB.
+    - Creates a final engine connected to the new test DB.
+    """
+    port = docker_services.port_for("test-db", 5432)
+    host = docker_ip
+
+    # 1. Connect to the default 'postgres' database which is guaranteed to exist.
+    default_db_url = f"postgresql://myuser:mypassword@{host}:{port}/postgres"
+    default_engine = create_engine(default_db_url)
+
+    # 2. Create the actual test database.
+    with default_engine.connect() as conn:
+        # Terminate any lingering connections to the test_db that might prevent dropping it
+        conn.execute(
+            text(
+                "SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname = 'test_db' AND pid <> pg_backend_pid();"
+            )
+        )
+        # Use a transaction to safely drop and create the database
+        conn.execute(text("COMMIT;"))
+        conn.execute(text("DROP DATABASE IF EXISTS test_db;"))
+        conn.execute(text("COMMIT;"))
+        conn.execute(text("CREATE DATABASE test_db;"))
+        conn.execute(text("COMMIT;"))
+
+    # 3. Now, create the final engine that connects to our new 'test_db'.
+    test_db_url = f"postgresql://myuser:mypassword@{host}:{port}/test_db"
+    engine = create_engine(test_db_url)
+
+    # 4. Enable the vector extension and create all tables.
+    with engine.connect() as connection:
+        connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
+        connection.commit()
+    Base.metadata.create_all(bind=engine)
+
+    yield engine
+
+    # 5. Teardown: drop all tables after the test session is complete.
+    Base.metadata.drop_all(bind=engine)
