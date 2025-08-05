@@ -1,6 +1,5 @@
 # src/signconnect/core/config.py
 from functools import lru_cache
-from typing import Any
 
 from pydantic import PostgresDsn, computed_field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
