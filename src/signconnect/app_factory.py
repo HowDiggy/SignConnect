@@ -5,21 +5,22 @@ from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 
 # --- Core application and DB modules ---
-from .db.database import Base, engine
+from .db import models, database
+
 
 # This is the production lifespan function.
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Handles application startup and shutdown events."""
-    from .db import database, models
-
+    """
+    Handles application startup and shutdown events.
+    """
     print("Application starting: Enabling pgvector extension...")
     database.enable_pgvector_extension()
 
     print("Creating database tables...")
-    models.Base.metadata.create_all(bind=engine)
+    models.Base.metadata.create_all(bind=database.engine)
     yield
-    print("Application shutdown.")
+    print("Application shutting down.")
 
 
 def create_app(testing: bool = False) -> FastAPI:
@@ -35,19 +36,19 @@ def create_app(testing: bool = False) -> FastAPI:
     # ADD THIS PRINT STATEMENT
     print(f"\n--- FACTORY: create_app() called with testing={testing} ---\n")
 
-
     # Conditionally set the lifespan based on the 'testing' flag.
-    lifespan_to_use = None if testing else lifespan
+    # lifespan_to_use = None if testing else lifespan
 
     app = FastAPI(
-        lifespan=lifespan_to_use, # Use the conditional lifespan
+        lifespan=lifespan,  # Use the conditional lifespan
         title="SignConnect API",
         description="API for the SignConnect assistive communication application.",
-        version="0.1.0"
+        version="0.1.0",
     )
 
     # --- Import and include all your routers ---
     from .routers import users, scenarios, questions, websockets, firebase
+
     print("Including routers...")
     app.include_router(scenarios.router)
     app.include_router(users.router)
@@ -59,10 +60,10 @@ def create_app(testing: bool = False) -> FastAPI:
     # (Keep your existing CORS middleware setup here)
     origins = [
         "http://localhost",
-        "http://localhost:55085", 
+        "http://localhost:55085",
         "http://127.0.0.1:55085",
-        "http://localhost:5173", 
-        "http://127.0.0.1:5173", 
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
         "http://localhost:63342",
         "http://127.0.0.1:63342",
         "https://signconnect.paulojauregui.com",
