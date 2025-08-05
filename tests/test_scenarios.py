@@ -101,7 +101,6 @@ def test_create_scenario_for_user(
 
     # ACT: Make the POST request to the create scenario endpoint.
     response = authenticated_client.post("/api/users/me/scenarios/", json=scenario_data)
-    response = authenticated_client.post("/api/users/me/scenarios/", json=scenario_data)
 
     # ASSERT Part 1: Check the API response.
     assert response.status_code == 200
@@ -222,7 +221,6 @@ def test_delete_scenario(authenticated_client: TestClient, db_session: Session):
     )
 
     # ACT: Make the DELETE request.
-    response = authenticated_client.delete(f"/api/users/me/scenarios/{scenario_id}")
     response = authenticated_client.delete(f"/api/users/me/scenarios/{scenario_id}")
 
     # ASSERT Part 1: Check the API response.

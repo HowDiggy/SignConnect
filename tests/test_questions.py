@@ -280,7 +280,6 @@ def test_delete_question(authenticated_client: TestClient, db_session: Session):
 
     # ACT: Make the DELETE request to the question's endpoint.
     response = authenticated_client.delete(f"/api/users/me/questions/{question_id}")
-    response = authenticated_client.delete(f"/api/users/me/questions/{question_id}")
 
     # ASSERT Part 1: Check the API response.
     assert response.status_code == 200
@@ -335,7 +334,6 @@ def test_cannot_delete_another_users_question(
     )
 
     # ACT: User A attempts to delete User B's question.
-    response = authenticated_client.delete(f"/api/users/me/questions/{question_b.id}")
     response = authenticated_client.delete(f"/api/users/me/questions/{question_b.id}")
 
     # ASSERT: The API should respond with 404 Not Found to prevent leaking information.
