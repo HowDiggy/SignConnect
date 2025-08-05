@@ -3,7 +3,7 @@
 
 services:
   test-db:
-    image: pgvector/pgvector:pg16
+    image: ankane/pgvector
     environment:
       POSTGRES_DB: test_db
       POSTGRES_USER: myuser
