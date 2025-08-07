@@ -1,6 +1,5 @@
 import asyncio
 import base64
-import json
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from google.cloud import speech
 from sqlalchemy.orm import Session
@@ -11,6 +10,7 @@ from ..llm.client import GeminiClient
 
 router = APIRouter(prefix="/api", tags=["websockets"])
 
+
 @router.websocket("/ws")
 async def websocket_endpoint(
     websocket: WebSocket,
@@ -20,7 +20,7 @@ async def websocket_endpoint(
     """
     Handles the WebSocket connection for real-time transcription and suggestions.
 
-    - Receives: JSON messages of type 'audio' or 'get_suggestions'.
+    - Receives: JSON messages of type 'audio', 'get_suggestions', or 'ping'.
     - Sends: JSON messages of type 'final_transcript', 'interim_transcript', or 'suggestions'.
     """
     await websocket.accept()
@@ -40,7 +40,9 @@ async def websocket_endpoint(
             enable_automatic_punctuation=True,
             model="latest_long",
         )
-        streaming_config = speech.StreamingRecognitionConfig(config=config, interim_results=True)
+        streaming_config = speech.StreamingRecognitionConfig(
+            config=config, interim_results=True
+        )
 
         async def request_generator():
             yield speech.StreamingRecognizeRequest(streaming_config=streaming_config)
@@ -58,13 +60,17 @@ async def websocket_endpoint(
                     continue
 
                 transcript = response.results[0].alternatives[0].transcript
-                
+
                 # Send structured JSON messages, which is the core of the refactor
                 if response.results[0].is_final:
                     print(f"Final transcript: {transcript}")
-                    await websocket.send_json({"type": "final_transcript", "data": transcript})
+                    await websocket.send_json(
+                        {"type": "final_transcript", "data": transcript}
+                    )
                 else:
-                    await websocket.send_json({"type": "interim_transcript", "data": transcript})
+                    await websocket.send_json(
+                        {"type": "interim_transcript", "data": transcript}
+                    )
         except Exception as e:
             print(f"Error during transcription: {e}")
         finally:
@@ -82,24 +88,58 @@ async def websocket_endpoint(
                 # Handle incoming audio chunks
                 audio_chunk = base64.b64decode(message["data"])
                 await audio_queue.put(audio_chunk)
-            
+
             elif msg_type == "get_suggestions":
-                # This logic is from your original file and is now supported again
+                # Use the LLM client to generate suggestions
                 transcript = message.get("transcript", "")
                 if transcript:
-                    # Your logic for fetching suggestions will go here
                     print(f"Received request for suggestions for: {transcript}")
-                    # Example of sending suggestions back:
-                    # suggestions = ["Suggestion A", "Suggestion B"]
-                    # await websocket.send_json({"type": "suggestions", "data": suggestions})
 
+                    # Get user data for personalized suggestions
+                    db_user = crud.get_user_by_email(db, email=user.get("email"))
+                    if db_user:
+                        # Get user preferences
+                        preferences = crud.get_user_preferences(db, user_id=db_user.id)
+                        preference_texts = [
+                            pref.preference_text for pref in preferences
+                        ]
+
+                        # For now, use empty conversation history - you could enhance this
+                        conversation_history = []
+
+                        # Generate suggestions using the LLM client
+                        suggestions = llm_client.get_response_suggestions(
+                            transcript=transcript,
+                            user_preferences=preference_texts,
+                            conversation_history=conversation_history,
+                        )
+                    else:
+                        # Fallback if user not found
+                        suggestions = ["Yes", "No", "Can you repeat that?"]
+
+                    await websocket.send_json(
+                        {"type": "suggestions", "data": suggestions}
+                    )
+
+            elif msg_type == "ping":
+                # Handle ping messages for testing
+                await websocket.send_json({"type": "pong", "data": "Connection alive"})
+
+            else:
+                # Unknown message type
+                print(f"Unknown message type: {msg_type}")
 
     except WebSocketDisconnect:
         print("Client disconnected.")
+    except Exception as e:
+        print(f"WebSocket error: {e}")
     finally:
         # Gracefully shut down the background task
         await audio_queue.put(None)
         if not process_task.done():
             process_task.cancel()
-        await process_task
+        try:
+            await process_task
+        except asyncio.CancelledError:
+            pass
         print("WebSocket connection closed and resources cleaned up.")
