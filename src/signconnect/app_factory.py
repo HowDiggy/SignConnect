@@ -1,70 +1,68 @@
 # src/signconnect/app_factory.py
 
-from fastapi import FastAPI
 from contextlib import asynccontextmanager
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from .llm.client import GeminiClient
 
-# --- Core application and DB modules ---
-from .db.database import Base, engine
+from .core.config import Settings
+from .db.models import Base  # Corrected import for Base
+from .dependencies import get_db as get_db_dependency
+from .routers import firebase, questions, scenarios, users, websockets
 
-# This is the production lifespan function.
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Handles application startup and shutdown events."""
-    from .db import database, models
-
-    print("Application starting: Enabling pgvector extension...")
-    database.enable_pgvector_extension()
-
-    print("Creating database tables...")
-    models.Base.metadata.create_all(bind=engine)
+    """
+    Handles application startup and shutdown events.
+    """
+    print("Application starting up...")
     yield
-    print("Application shutdown.")
+    print("Application shutting down.")
 
 
-def create_app(testing: bool = False) -> FastAPI:
+def create_app(settings: Settings, testing: bool = False) -> FastAPI:
     """
     Application factory to create and configure the FastAPI app.
-    This is the single source of truth for app creation.
-
-    Args:
-        testing (bool): If True, the app is created without the production lifespan
-                        event handler, making it suitable for testing.
     """
-
-    # ADD THIS PRINT STATEMENT
     print(f"\n--- FACTORY: create_app() called with testing={testing} ---\n")
 
+    # The factory is now responsible for creating the engine and SessionLocal
+    # Using the computed DATABASE_URL from the settings object
+    engine = create_engine(str(settings.DATABASE_URL))
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-    # Conditionally set the lifespan based on the 'testing' flag.
-    lifespan_to_use = None if testing else lifespan
+    # The factory is also responsible for creating all tables
+    Base.metadata.create_all(bind=engine)
+
+    # Initialize the LLM client
+    llm_client = GeminiClient(api_key=settings.GEMINI_API_KEY.get_secret_value())
 
     app = FastAPI(
-        lifespan=lifespan_to_use, # Use the conditional lifespan
+        lifespan=None if testing else lifespan,
         title="SignConnect API",
-        description="API for the SignConnect assistive communication application.",
         version="0.1.0"
     )
 
-    # --- Import and include all your routers ---
-    from .routers import users, scenarios, questions, websockets, firebase
-    print("Including routers...")
-    app.include_router(scenarios.router)
-    app.include_router(users.router)
-    app.include_router(questions.router)
-    app.include_router(websockets.router)
-    app.include_router(firebase.router)
+    # Store the client on the app state for easy access via dependencies
+    app.state.llm_client = llm_client
 
-    # --- Add CORS Middleware ---
-    # (Keep your existing CORS middleware setup here)
+    def get_db_override():
+        """Dependency override for getting a DB session."""
+        db = SessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    # CRITICAL: Override the dependency
+    app.dependency_overrides[get_db_dependency] = get_db_override
+
+    # Add CORS Middleware
     origins = [
-        "http://localhost",
-        "http://localhost:55085", 
-        "http://127.0.0.1:55085",
-        "http://localhost:5173", 
-        "http://127.0.0.1:5173", 
-        "http://localhost:63342",
-        "http://127.0.0.1:63342",
+        "http://localhost", "http://localhost:5173",
         "https://signconnect.paulojauregui.com",
     ]
     app.add_middleware(
@@ -74,5 +72,12 @@ def create_app(testing: bool = False) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Include Routers
+    app.include_router(scenarios.router)
+    app.include_router(users.router)
+    app.include_router(questions.router)
+    app.include_router(websockets.router)
+    app.include_router(firebase.router)
 
     return app
