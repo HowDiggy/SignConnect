@@ -3,6 +3,7 @@
 import google.generativeai as genai
 from typing import List
 
+
 class GeminiClient:
     """
     A client for interacting with the Google Gemini API.
@@ -10,6 +11,7 @@ class GeminiClient:
     This class encapsulates the configuration and model interaction,
     making it easy to manage and inject as a dependency.
     """
+
     def __init__(self, api_key: str):
         """
         Initializes the Gemini client and configures the API key.
@@ -18,14 +20,14 @@ class GeminiClient:
             api_key: The Google Gemini API key.
         """
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-pro')
+        self.model = genai.GenerativeModel("gemini-1.5-flash")
         print("GeminiClient initialized successfully.")
 
     def get_response_suggestions(
         self,
         transcript: str,
         user_preferences: List[str],
-        conversation_history: List[str]
+        conversation_history: List[str],
     ) -> List[str]:
         """
         Generates conversational response suggestions based on the transcript
@@ -61,11 +63,10 @@ class GeminiClient:
 
             # Clean up the response and split into a list
             suggestions = [
-                line.strip() for line in response.text.split('\n') if line.strip()
+                line.strip() for line in response.text.split("\n") if line.strip()
             ]
             return suggestions[:3]  # Ensure we only return up to 3 suggestions
 
         except Exception as e:
             print(f"Error generating suggestions from Gemini: {e}")
             return []
-
