@@ -6,11 +6,11 @@
 
 ## Project Overview
 
-SignConnect is an assistive technology web application designed to help deaf and hard-of-hearing individuals navigate everyday conversations with ease. Using speech-to-text technology and AI-powered response suggestions, SignConnect creates a seamless bridge between spoken language and text-based communication.
+SignConnect is an assistive technology web application designed to help deaf and non-verbal individuals navigate everyday conversations with ease. Using speech-to-text technology and AI-powered response suggestions, SignConnect creates a seamless bridge between spoken language and text-based communication.
 
 ### The Problem
 
-For deaf and hard-of-hearing individuals, spontaneous conversations can be challenging, especially in environments where:
+For deaf and non-verbal individuals, spontaneous conversations can be challenging, especially in environments where:
 - Communication partners don't know sign language
 - Note-passing is impractical or too slow
 - Professional interpreters aren't available
@@ -25,7 +25,6 @@ SignConnect transforms spoken language into text in real-time and provides intel
 - **Context-Aware Response Suggestions**: Get personalized response options based on the conversation context
 - **Scenario-Based Support**: Pre-configure responses for common situations like restaurants, medical appointments, or workplace meetings
 - **User Preferences**: Store favorites, commonly used phrases, and personal details for quick access
-- **Offline Capabilities**: Continue using core features even without internet connectivity
 - **Vector-Based Semantic Matching**: Understand the meaning behind questions for more accurate response suggestions
 
 ## Technology Stack
@@ -33,9 +32,9 @@ SignConnect transforms spoken language into text in real-time and provides intel
 - **Frontend**: React.js (Progressive Web App)
 - **Backend**: Python with FastAPI
 - **Database**: PostgreSQL with pgvector extension for semantic search
-- **Speech Processing**: Web Speech API / OpenAI Whisper API
-- **Vector Embeddings**: OpenAI Embeddings API
-- **Deployment**: AWS/GCP/Azure (TBD)
+- **Speech Processing**: Google Cloud Speech-to-Text
+- **Vector Embeddings**: Google Gemini
+- **Deployment**: AWS/GCP/Azure/OCI (TBD)
 
 ### **4. Project Structure (Monorepo)**
 
