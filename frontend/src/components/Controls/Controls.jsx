@@ -1,9 +1,10 @@
+// frontend/src/components/Controls/Controls.jsx
 import React, { useState, useRef, useEffect } from 'react';
 import './Controls.css';
 
 function Controls({ user, onNewTranscription, onNewSuggestions }) {
   const [isConnected, setIsConnected] = useState(false);
-  
+
   // Refs for the WebSocket, MediaRecorder, and audio stream
   const socketRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -12,38 +13,70 @@ function Controls({ user, onNewTranscription, onNewSuggestions }) {
   const handleStart = async () => {
     if (!user) return;
 
-    // --- 1. Establish WebSocket Connection (Your existing logic) ---
+    // --- 1. Establish WebSocket Connection ---
     const token = await user.getIdToken();
-    const wsUrl = `ws://localhost:8000/ws?token=${token}`;
+    const wsUrl = `ws://localhost:8000/api/ws?token=${token}`;
     socketRef.current = new WebSocket(wsUrl);
 
     socketRef.current.onopen = () => {
       console.log("WebSocket connection established.");
       setIsConnected(true);
 
-      // --- 2. Start Audio Recording (New Logic) ---
-      startRecording(); 
+      // --- 2. Start Audio Recording ---
+      startRecording();
     };
 
     socketRef.current.onmessage = (event) => {
-      const message = event.data;
+      console.log("Raw WebSocket message received:", event.data);
 
-      if (message.startsWith("final:")) {
-        const transcriptPart = message.substring("final:".length);
-        onNewTranscription(transcriptPart); // Pass data up to App.jsx
-        if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-          socketRef.current.send(JSON.stringify({
-            type: "get_suggestions",
-            transcript: transcriptPart
-          }));
+      try {
+        // Try to parse as JSON first (new backend format)
+        const message = JSON.parse(event.data);
+        console.log("Parsed WebSocket message:", message);
+
+        if (message.type === "final_transcript") {
+          console.log("Final transcript received:", message.data);
+          onNewTranscription(message.data); // Pass data up to App.jsx
+
+          // Request suggestions from backend
+          if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+            socketRef.current.send(JSON.stringify({
+              type: "get_suggestions",
+              transcript: message.data
+            }));
+          }
+        } else if (message.type === "suggestions") {
+          console.log("Suggestions received:", message.data);
+          onNewSuggestions(message.data); // Pass data up to App.jsx
+        } else if (message.type === "interim_transcript") {
+          console.log("Interim transcript:", message.data);
+          // You can handle interim transcripts here if needed
         }
-      } else if (message.startsWith("suggestions:")) {
-        const suggestionsJSON = message.substring("suggestions:".length);
-        try {
-          const suggestionsList = JSON.parse(suggestionsJSON);
-          onNewSuggestions(suggestionsList); // Pass data up to App.jsx
-        } catch (e) {
-          console.error("Failed to parse suggestions JSON:", e);
+      } catch (e) {
+        // Fallback: handle old string-based format
+        console.log("Fallback: treating as string message");
+        const message = event.data;
+
+        if (message.startsWith("final:")) {
+          const transcriptPart = message.substring("final:".length);
+          console.log("Final transcript (legacy format):", transcriptPart);
+          onNewTranscription(transcriptPart);
+
+          if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+            socketRef.current.send(JSON.stringify({
+              type: "get_suggestions",
+              transcript: transcriptPart
+            }));
+          }
+        } else if (message.startsWith("suggestions:")) {
+          const suggestionsJSON = message.substring("suggestions:".length);
+          try {
+            const suggestionsList = JSON.parse(suggestionsJSON);
+            console.log("Suggestions (legacy format):", suggestionsList);
+            onNewSuggestions(suggestionsList);
+          } catch (parseError) {
+            console.error("Failed to parse suggestions JSON:", parseError);
+          }
         }
       }
     };
