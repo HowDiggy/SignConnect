@@ -1,4 +1,10 @@
+// frontend/src/services/api.js
+// Replace the entire file with this fixed version
+
 import { auth } from '../firebaseConfig';
+
+// Use the correct base URL for Docker environment
+const API_BASE_URL = 'http://localhost:8000';
 
 // A helper function to get the user's auth token
 const getAuthToken = async () => {
@@ -8,29 +14,42 @@ const getAuthToken = async () => {
 
 // A helper for making authenticated requests
 const fetchAuthenticated = async (url, options = {}) => {
-  const token = await getAuthToken();
-  const headers = {
-    ...options.headers,
-    'Authorization': `Bearer ${token}`,
-  };
+  try {
+    const token = await getAuthToken();
 
-  // Only add Content-Type header if there is a body
-  if (options.body) {
-    headers['Content-Type'] = 'application/json';
-  }
+    // Build the full URL
+    const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
+    console.log('API Call:', fullUrl);
 
-  const response = await fetch(url, { ...options, headers });
+    const headers = {
+      ...options.headers,
+      'Authorization': `Bearer ${token}`,
+    };
 
-  if (!response.ok) {
-    const errorBody = await response.text();
-    console.error("API Error Response:", errorBody);
-    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+    // Only add Content-Type header if there is a body
+    if (options.body) {
+      headers['Content-Type'] = 'application/json';
+    }
+
+    const response = await fetch(fullUrl, { ...options, headers });
+
+    console.log('API Response:', response.status, response.statusText);
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.error("API Error Response:", errorBody);
+      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+    }
+
+    // Handle cases with no JSON response body (like DELETE)
+    if (response.status === 204 || response.headers.get("content-length") === "0") {
+        return null;
+    }
+    return response.json();
+  } catch (error) {
+    console.error('API Call Failed:', error);
+    throw error;
   }
-  // Handle cases with no JSON response body (like DELETE)
-  if (response.status === 204 || response.headers.get("content-length") === "0") {
-      return null;
-  }
-  return response.json();
 };
 
 // --- Preferences API ---
@@ -53,7 +72,6 @@ export const deletePreference = async (preferenceId) => {
   });
   return null;
 };
-
 
 // --- Scenarios API ---
 export const getScenarios = async () => {
@@ -86,7 +104,6 @@ export const createQuestionForScenario = async (scenarioId, questionData) => {
     body: JSON.stringify(questionData)
   });
 };
-
 
 // --- Questions API ---
 export const updateQuestion = async (questionId, questionData) => {

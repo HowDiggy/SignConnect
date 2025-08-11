@@ -25,3 +25,4 @@ firebase-credentials.json
 # Python cache
 __pycache__
 .coverage*
+.coverage

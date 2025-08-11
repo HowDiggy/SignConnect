@@ -1,10 +1,17 @@
 # src/signconnect/main.py
 
 from .app_factory import create_app
+from .core.config import get_settings
 
-# Create the app instance at the module level.
-# Uvicorn will import this 'app' object when it starts.
-app = create_app()
+# Get the application settings
+# This will load from your .env file or environment variables
+settings = get_settings()
+
+# Create the FastAPI application instance using the factory
+# This is the main entry point for the production application
+app = create_app(settings=settings)
+
+# The 'app' variable is what Uvicorn will use to run the application.
 
 # We no longer need the 'if __name__ == "__main__"' block,
 # as Uvicorn handles running the server via the command line.
