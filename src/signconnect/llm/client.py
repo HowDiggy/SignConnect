@@ -1,79 +1,72 @@
-import os
+# src/signconnect/llm/client.py
+
 import google.generativeai as genai
-from ..core.config import get_settings
-from ..db import models
-from typing import List, Optional
-
-# configure the client with the API key from our settings
-genai.configure(api_key=get_settings().GEMINI_API_KEY)
+from typing import List
 
 
-def get_response_suggestions(
+class GeminiClient:
+    """
+    A client for interacting with the Google Gemini API.
+
+    This class encapsulates the configuration and model interaction,
+    making it easy to manage and inject as a dependency.
+    """
+
+    def __init__(self, api_key: str):
+        """
+        Initializes the Gemini client and configures the API key.
+
+        Args:
+            api_key: The Google Gemini API key.
+        """
+        genai.configure(api_key=api_key)
+        self.model = genai.GenerativeModel("gemini-1.5-flash")
+        print("GeminiClient initialized successfully.")
+
+    def get_response_suggestions(
+        self,
         transcript: str,
-        similar_question: Optional[models.ScenarioQuestion],
-        preferences: List[models.UserPreference],
-) -> str:
-    """
-    Generates personalized response suggestions using a rich context.
-    :param preferences:
-    :param similar_question:
-    :param transcript:
-    :return:
-    """
+        user_preferences: List[str],
+        conversation_history: List[str],
+    ) -> List[str]:
+        """
+        Generates conversational response suggestions based on the transcript
+        and user context.
 
-    # For initializing the model, 'gemini-pro' is a good choice for this task
-    model = genai.GenerativeModel('gemini-1.5-flash')
+        Args:
+            transcript: The latest transcript of the conversation.
+            user_preferences: A list of user-specific details or preferences.
+            conversation_history: A list of previous messages in the conversation.
 
-    # Add a check for the API key
-    if not get_settings().GEMINI_API_KEY:
-        print("Warning: GEMINI_API_KEY is not set. Using placeholder suggestions.")
-        return "How can I help you?\nWhat is the price?\nThank you."
+        Returns:
+            A list of three suggested responses, or an empty list if an error occurs.
+        """
+        try:
+            # Constructing the prompt with clear context for the model
+            prompt = (
+                "You are an AI assistant for a deaf or hard-of-hearing person. "
+                "Your goal is to provide three concise, natural-sounding, and relevant "
+                "response suggestions to the ongoing conversation. The user will provide "
+                "the latest transcript, their personal context, and the conversation history.\n\n"
+                "**User's Personal Context:**\n"
+                f"- {', '.join(user_preferences)}\n\n"
+                "**Conversation History:**\n"
+                f"{' '.join(conversation_history)}\n\n"
+                "**Latest Transcript (what the other person just said):**\n"
+                f'"{transcript}"\n\n'
+                "Based on all this information, provide exactly three brief and "
+                "relevant response suggestions, each on a new line, without any "
+                "numbering or bullet points."
+            )
 
-    # --- Build the Enhanced Prompt ---
+            response = self.model.generate_content(prompt)
 
-    # Start with the basic instruction and structure
-    prompt_parts = [
-        "You are a helpful assistant providing response suggestions for a user who is deaf or hard-of-hearing.",
-        "Based on the following conversation transcript and the user's personal context, provide 2-3 brief and relevant response suggestions, each on a new line.",
-        "Do not include any other text, numbering, or explanations.",
-        "\n---\n"
-    ]
+            # Clean up the response and split into a list
+            suggestions = [
+                line.strip() for line in response.text.split("\n") if line.strip()
+            ]
+            return suggestions[:3]  # Ensure we only return up to 3 suggestions
 
-    # Add the conversation transcript
-    prompt_parts.append(f"**Conversation Transcript:**\n\"{transcript}\"")
-
-
-    # Format and add preferences if they exist
-    if preferences:
-        # Add the user's personal context section
-        prompt_parts.append("\n**User's Personal Context:**")
-
-        # This creates a clean, bulleted list of preferences
-        formatted_preferences = "\n".join([f"- {p.preference_text}" for p in preferences])
-        prompt_parts.append(f"General Preferences:\n{formatted_preferences}")
-    else:
-        # Handle the case where there are no preferences
-        prompt_parts.append("General Preferences: None")
-
-    # Format and add the most similar saved question-answer pair if it exists
-    if similar_question:
-        prompt_parts.append(
-            "\nMost Relevant Saved Scenario:\n"
-            f"Question: \"{similar_question.question_text}\"\n"
-            f"User's Answer: \"{similar_question.user_answer_text}\""
-        )
-
-    prompt_parts.append("\n---\n")
-    prompt_parts.append("Provide your suggestions below:")
-
-    # Join all parts into a single prompt string
-    prompt = "\n".join(prompt_parts)
-
-    # The print statement that was here has been removed
-
-    try:
-        response = model.generate_content(prompt)
-        return response.text
-    except Exception as e:
-        print(f"Error generating context with Gemini: {e}")
-        return ""
+        except Exception as e:
+            print(f"Error generating suggestions from Gemini: {e}")
+            return []

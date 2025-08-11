@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from starlette import status
 
 from .. import crud, schemas
-from ..db.database import get_db
+from ..dependencies import get_db
 from ..dependencies import get_current_user
 
 router = APIRouter(

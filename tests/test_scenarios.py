@@ -27,6 +27,7 @@ def test_read_scenarios_for_user_with_no_scenarios(
 
     # ACT
     response = authenticated_client.get("/api/users/me/scenarios/")
+    response = authenticated_client.get("/api/users/me/scenarios/")
 
     # ASSERT
     assert response.status_code == 200
@@ -66,6 +67,7 @@ def test_read_scenarios_for_user_with_scenarios(
     )
 
     # ACT
+    response = authenticated_client.get("/api/users/me/scenarios/")
     response = authenticated_client.get("/api/users/me/scenarios/")
 
     # ASSERT
