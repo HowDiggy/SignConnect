@@ -1,4 +1,9 @@
+// frontend/src/services/api.js
 import { auth } from '../firebaseConfig';
+import config from '../config/environment.js';
+
+// Use environment configuration instead of hardcoded URL
+const API_BASE_URL = config.apiBaseUrl;
 
 // A helper function to get the user's auth token
 const getAuthToken = async () => {
