@@ -19,7 +19,8 @@ const fetchAuthenticated = async (url, options = {}) => {
     headers['Content-Type'] = 'application/json';
   }
 
-  const response = await fetch(url, { ...options, headers });
+  const fullUrl = `${import.meta.env.VITE_API_BASE_URL}${url}`;
+  const response = await fetch(fullUrl, { ...options, headers });
 
   if (!response.ok) {
     const errorBody = await response.text();
