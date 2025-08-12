@@ -4,7 +4,7 @@
 import { auth } from '../firebaseConfig';
 
 // Use the correct base URL for Docker environment
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 // A helper function to get the user's auth token
 const getAuthToken = async () => {

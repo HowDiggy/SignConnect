@@ -4,13 +4,4 @@ import react from '@vitejs/plugin-react'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  server: {
-    // Add this server proxy configuration
-    proxy: {
-      '/api': {
-        target: 'http://backend:8000', // Your FastAPI backend URL
-        changeOrigin: true,
-      },
-    },
-  },
 })
