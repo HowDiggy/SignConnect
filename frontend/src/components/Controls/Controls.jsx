@@ -1,9 +1,12 @@
+// frontend/src/components/Controls/Controls.jsx
 import React, { useState, useRef, useEffect } from 'react';
+import config from '../../config/environment.js';
 import './Controls.css';
 
 function Controls({ user, onNewTranscription, onNewSuggestions }) {
   const [isConnected, setIsConnected] = useState(false);
-  
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
   // Refs for the WebSocket, MediaRecorder, and audio stream
   const socketRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -12,53 +15,88 @@ function Controls({ user, onNewTranscription, onNewSuggestions }) {
   const handleStart = async () => {
     if (!user) return;
 
-    // --- 1. Establish WebSocket Connection (Your existing logic) ---
-    const token = await user.getIdToken();
-    const wsUrl = `ws://localhost:8000/ws?token=${token}`;
-    socketRef.current = new WebSocket(wsUrl);
+    try {
+      // 1. Get the Firebase ID token
+      const token = await user.getIdToken();
 
-    socketRef.current.onopen = () => {
-      console.log("WebSocket connection established.");
-      setIsConnected(true);
+      // 2. Connect to WebSocket WITHOUT token in URL (security fix)
+      const wsUrl = `${config.wsBaseUrl}/ws`;
+      console.log('Connecting to WebSocket:', wsUrl);
 
-      // --- 2. Start Audio Recording (New Logic) ---
-      startRecording(); 
-    };
+      socketRef.current = new WebSocket(wsUrl);
 
-    socketRef.current.onmessage = (event) => {
-      const message = event.data;
+      socketRef.current.onopen = () => {
+        console.log("WebSocket connection established, sending authentication...");
+        setIsConnected(true);
 
-      if (message.startsWith("final:")) {
-        const transcriptPart = message.substring("final:".length);
-        onNewTranscription(transcriptPart); // Pass data up to App.jsx
-        if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-          socketRef.current.send(JSON.stringify({
-            type: "get_suggestions",
-            transcript: transcriptPart
-          }));
+        // 3. Send authentication handshake after connection
+        const authMessage = {
+          type: "authenticate",
+          token: token
+        };
+        socketRef.current.send(JSON.stringify(authMessage));
+      };
+
+      socketRef.current.onmessage = (event) => {
+        const message = event.data;
+
+        // Handle authentication response
+        if (message === "auth_success") {
+          console.log("WebSocket authentication successful");
+          setIsAuthenticated(true);
+          // Start audio recording only after successful authentication
+          startRecording();
+          return;
         }
-      } else if (message.startsWith("suggestions:")) {
-        const suggestionsJSON = message.substring("suggestions:".length);
-        try {
-          const suggestionsList = JSON.parse(suggestionsJSON);
-          onNewSuggestions(suggestionsList); // Pass data up to App.jsx
-        } catch (e) {
-          console.error("Failed to parse suggestions JSON:", e);
+
+        if (message === "auth_failed") {
+          console.error("WebSocket authentication failed");
+          setIsAuthenticated(false);
+          handleStop();
+          return;
         }
-      }
-    };
 
-    socketRef.current.onclose = () => {
-      console.log("WebSocket connection closed.");
-      setIsConnected(false);
-      stopRecordingCleanup(); // Ensure recorder is stopped if connection closes
-      socketRef.current = null;
-    };
+        // Handle transcription messages
+        if (message.startsWith("final:")) {
+          const transcriptPart = message.substring("final:".length);
+          onNewTranscription(transcriptPart);
 
-    socketRef.current.onerror = (error) => {
-      console.error("WebSocket error:", error);
+          if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+            socketRef.current.send(JSON.stringify({
+              type: "get_suggestions",
+              transcript: transcriptPart
+            }));
+          }
+        } else if (message.startsWith("suggestions:")) {
+          const suggestionsJSON = message.substring("suggestions:".length);
+          try {
+            const suggestionsList = JSON.parse(suggestionsJSON);
+            onNewSuggestions(suggestionsList);
+          } catch (e) {
+            console.error("Failed to parse suggestions JSON:", e);
+          }
+        }
+      };
+
+      socketRef.current.onclose = () => {
+        console.log("WebSocket connection closed.");
+        setIsConnected(false);
+        setIsAuthenticated(false);
+        stopRecordingCleanup();
+        socketRef.current = null;
+      };
+
+      socketRef.current.onerror = (error) => {
+        console.error("WebSocket error:", error);
+        setIsConnected(false);
+        setIsAuthenticated(false);
+      };
+
+    } catch (error) {
+      console.error("Error starting WebSocket connection:", error);
       setIsConnected(false);
-    };
+      setIsAuthenticated(false);
+    }
   };
 
   const startRecording = async () => {
@@ -67,7 +105,7 @@ function Controls({ user, onNewTranscription, onNewSuggestions }) {
     } catch (err) {
       console.error("Error accessing microphone:", err);
       alert("Microphone access is required for transcription.");
-      handleStop(); // Stop everything if mic access is denied
+      handleStop();
       return;
     }
 
@@ -76,7 +114,7 @@ function Controls({ user, onNewTranscription, onNewSuggestions }) {
     });
 
     mediaRecorderRef.current.addEventListener('dataavailable', (event) => {
-      if (event.data.size > 0 && socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      if (event.data.size > 0 && socketRef.current && socketRef.current.readyState === WebSocket.OPEN && isAuthenticated) {
         const reader = new FileReader();
         reader.onloadend = () => {
           const base64String = reader.result.split(',')[1];
@@ -87,8 +125,8 @@ function Controls({ user, onNewTranscription, onNewSuggestions }) {
       }
     });
 
-    mediaRecorderRef.current.start(1000); // Capture 1-second chunks
-    console.log("MediaRecorder started.");
+    mediaRecorderRef.current.start(250); // Capture smaller chunks more frequently (250ms instead of 1000ms)
+    console.log("MediaRecorder started with 250ms intervals.");
   };
 
   const stopRecordingCleanup = () => {
@@ -102,10 +140,11 @@ function Controls({ user, onNewTranscription, onNewSuggestions }) {
     }
     mediaRecorderRef.current = null;
     audioStreamRef.current = null;
-  }
+  };
 
   const handleStop = () => {
     stopRecordingCleanup();
+    setIsAuthenticated(false);
     if (socketRef.current) {
       socketRef.current.close();
     }
@@ -134,7 +173,17 @@ function Controls({ user, onNewTranscription, onNewSuggestions }) {
         </button>
       </div>
       <div className="status">
-        Connection Status: {isConnected ? <span className="status-connected">Connected</span> : <span className="status-disconnected">Disconnected</span>}
+        Connection Status: {
+          isConnected ? (
+            isAuthenticated ? (
+              <span className="status-connected">Connected & Authenticated</span>
+            ) : (
+              <span className="status-connecting">Connected (Authenticating...)</span>
+            )
+          ) : (
+            <span className="status-disconnected">Disconnected</span>
+          )
+        }
       </div>
     </div>
   );

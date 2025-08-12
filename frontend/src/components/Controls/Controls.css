@@ -48,3 +48,8 @@
   color: #dc3545; /* red */
   font-weight: bold;
 }
+
+.status-connecting {
+  color: #ff9800; /* orange */
+  font-weight: bold;
+}
