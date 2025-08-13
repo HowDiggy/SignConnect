@@ -34,6 +34,7 @@ httpx = {extras = ["http2"], version = "^0.28.1"}
 pytest-docker = ">=2.0.0"
 pytest-cov = "^6.2.1"
 pre-commit = "^4.2.0"
+pytest-asyncio = "^1.1.0"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
@@ -41,3 +42,4 @@ pythonpath = ["src"]
 markers = [
     "integration: marks tests as integration tests (requires docker)",
 ]
+asyncio_mode= "auto"
