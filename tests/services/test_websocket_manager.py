@@ -1,7 +1,6 @@
-from unittest.mock import AsyncMock, MagicMock
-
 import pytest
-
+import base64
+from unittest.mock import AsyncMock, MagicMock
 from src.signconnect.services.websocket_manager import handle_message
 
 # Mark all tests in this file as asynchronous
@@ -109,3 +108,54 @@ async def test_handle_message_get_suggestions():
         expected_response, mock_websocket
     )
     mock_audio_queue.put.assert_not_called()
+
+
+# ... (rest of the file) ...
+
+
+async def test_handle_message_audio():
+    """
+    Test that handle_message correctly processes the 'audio' message type.
+
+    **Pre-conditions:**
+    - A message with type 'audio' containing valid base64 data.
+    - Mocked dependencies.
+
+    **Post-conditions:**
+    - The `put` method of the audio_queue is called once with the decoded
+      data from the message.
+    - No methods are called on the llm_client or the websocket manager.
+    """
+    # Arrange
+    mock_manager = MagicMock()
+    mock_websocket = MagicMock()
+    mock_db = MagicMock()
+    mock_llm_client = MagicMock()
+    mock_audio_queue = MagicMock()
+    mock_audio_queue.put = AsyncMock()
+    mock_firebase_user = {"email": "test@example.com"}
+
+    # 1. Create real, valid base64 data.
+    original_audio_bytes = b"sample_audio"
+    encoded_audio_str = base64.b64encode(original_audio_bytes).decode("ascii")
+
+    test_message = {"type": "audio", "data": encoded_audio_str}
+
+    # Act
+    await handle_message(
+        manager=mock_manager,
+        websocket=mock_websocket,
+        message=test_message,
+        db=mock_db,
+        user=mock_firebase_user,  # 2. Pass the correct user dictionary
+        llm_client=mock_llm_client,
+        audio_queue=mock_audio_queue,
+    )
+
+    # Assert
+    # 3. Assert that the DECODED bytes were put into the queue.
+    mock_audio_queue.put.assert_awaited_once_with(original_audio_bytes)
+
+    # Verify other services were not used
+    mock_llm_client.get_response_suggestions.assert_not_called()
+    mock_manager.send_personal_json.assert_not_called()
