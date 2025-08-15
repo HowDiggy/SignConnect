@@ -1,11 +1,16 @@
+# src/signconnect/routers/websockets.py
+
 import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from sqlalchemy.orm import Session
 from google.cloud import speech
+import structlog
 
 # Import the new services and dependencies
 from signconnect.services import websocket_manager as manager_service
 from signconnect.dependencies import get_current_user_ws, get_db
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api", tags=["websockets"])
 
@@ -55,9 +60,9 @@ async def audio_processor(websocket: WebSocket, audio_queue: asyncio.Queue):
                 {"type": msg_type, "data": transcript}, websocket
             )
     except Exception as e:
-        print(f"Error during transcription: {e}")
+        logger.exception(f"Error during transcription: {e}")
     finally:
-        print("Audio processor finished.")
+        logger.info("Audio processor finished.")
 
 
 @router.websocket("/ws")
@@ -73,7 +78,7 @@ async def websocket_endpoint(
     - Listens for incoming messages and delegates them to the message handler.
     """
     await manager.connect(websocket)
-    print(f"WebSocket connection accepted for user: {user.get('email')}")
+    logger.info(f"WebSocket connection accepted for user: {user.get('email')}")
 
     llm_client = websocket.app.state.llm_client
     audio_queue = asyncio.Queue()
@@ -93,9 +98,9 @@ async def websocket_endpoint(
                 audio_queue=audio_queue,
             )
     except WebSocketDisconnect:
-        print(f"Client disconnected: {user.get('email')}")
+        logger.info(f"Client disconnected: {user.get('email')}")
     except Exception as e:
-        print(f"WebSocket error for user {user.get('email')}: {e}")
+        logger.exception(f"WebSocket error for user {user.get('email')}: {e}")
     finally:
         # Gracefully shut down resources
         manager.disconnect(websocket)
@@ -106,4 +111,6 @@ async def websocket_endpoint(
             await process_task
         except asyncio.CancelledError:
             pass
-        print(f"Connection closed and resources cleaned up for {user.get('email')}.")
+        logger.info(
+            f"Connection closed and resources cleaned up for {user.get('email')}."
+        )

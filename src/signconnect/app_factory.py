@@ -5,11 +5,44 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from .llm.client import GeminiClient
+import structlog
+import sentry_sdk
 
 from .core.config import Settings
+
+# Import the new logging configuration function
+from .core.logging import configure_logging
 from .dependencies import get_db as get_db_dependency
 from .routers import firebase, questions, scenarios, users, websockets
+from .llm.client import GeminiClient
+
+
+# Configure logging right at the start
+configure_logging()
+
+# --- Sentry Initialization ---
+# Get settings to access the DSN
+# Note: This is a simple way to get settings here.
+# In very complex apps, you might pass settings around more explicitly.
+temp_settings = Settings()
+if temp_settings.SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=temp_settings.SENTRY_DSN.get_secret_value(),
+        # Set traces_sample_rate to 1.0 to capture 100%
+        # of transactions for performance monitoring.
+        # Adjust in production.
+        traces_sample_rate=1.0,
+        # Set profiles_sample_rate to 1.0 to profile 100%
+        # of sampled transactions.
+        # Adjust in production.
+        profiles_sample_rate=1.0,
+        # Set the environment
+        environment=temp_settings.SENTRY_ENVIRONMENT,
+        shutdown_timeout=2,
+        debug=False,
+    )
+# Get a structlog logger instead of a standard one
+logger = structlog.get_logger(__name__)
 
 
 @asynccontextmanager
@@ -17,16 +50,17 @@ async def lifespan(app: FastAPI):
     """
     Handles application startup and shutdown events.
     """
-    print("Application starting up...")
+    logger.info("Application starting up...")
     yield
-    print("Application shutting down.")
+    logger.info("Application shutting down.")
 
 
 def create_app(settings: Settings, testing: bool = False) -> FastAPI:
     """
     Application factory to create and configure the FastAPI app.
     """
-    print(f"\n--- FACTORY: create_app() called with testing={testing} ---\n")
+    # Example of adding context to a log message
+    logger.info("--- FACTORY: create_app() called ---", testing=testing)
 
     # The factory is now responsible for creating the engine and SessionLocal
     # Using the computed DATABASE_URL from the settings object
