@@ -3,13 +3,22 @@
 from fastapi import APIRouter
 from typing import Dict, Any
 from ..core.config import get_settings
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 
 router = APIRouter(
     prefix="/api",
     tags=["Firebase"],
 )
 
-@router.get("/firebase-config", response_model=Dict[str, Any], summary="Get Firebase client configuration")
+
+@router.get(
+    "/firebase-config",
+    response_model=Dict[str, Any],
+    summary="Get Firebase client configuration",
+)
 def get_firebase_client_config() -> Dict[str, Any]:
     """
     Retrieves the Firebase client-side configuration for frontend applications.
@@ -35,6 +44,6 @@ def get_firebase_client_config() -> Dict[str, Any]:
         "storageBucket": "robust-form-464822-c0.firebasestorage.app",
         "messagingSenderId": "300931117814",
         "appId": "1:300931117814:web:ea51ca90c5bd58a3a1f2d7",
-        "measurementId": "G-HZH7QK7NL9"
+        "measurementId": "G-HZH7QK7NL9",
     }
     return firebase_config

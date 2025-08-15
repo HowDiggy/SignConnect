@@ -35,6 +35,8 @@ services:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
+    env_file:
+      - .env
     depends_on:
       - db # This ensures the database starts before the backend
     healthcheck:

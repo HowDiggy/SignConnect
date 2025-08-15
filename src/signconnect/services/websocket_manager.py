@@ -5,10 +5,13 @@ from typing import List, Any, Dict
 from fastapi import WebSocket
 from sqlalchemy.orm import Session
 import asyncio
+import structlog
 
 # Use absolute imports for our own modules
 from signconnect import crud
 from signconnect.llm.client import GeminiClient
+
+logger = structlog.get_logger(__name__)
 
 
 class ConnectionManager:
@@ -100,7 +103,7 @@ async def handle_message(
         # Use the LLM client to generate suggestions
         transcript = message.get("transcript", "")
         if transcript:
-            print(f"Received request for suggestions for: {transcript}")
+            logger.info(f"Received request for suggestions for: {transcript}")
 
             # Get user data for personalized suggestions
             db_user = crud.get_user_by_email(db, email=user.get("email"))
@@ -127,4 +130,4 @@ async def handle_message(
         )
 
     else:
-        print(f"Unknown message type: {msg_type}")
+        logger.warning(f"Unknown message type: {msg_type}")

@@ -1,8 +1,9 @@
 # src/signconnect/core/config.py
 from functools import lru_cache
 
-from pydantic import PostgresDsn, computed_field, SecretStr
+from pydantic import PostgresDsn, computed_field, SecretStr, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Optional
 
 
 class Settings(BaseSettings):
@@ -18,21 +19,25 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
+        extra="ignore",
     )
 
     # --- LLM and Firebase API Keys ---
     GEMINI_API_KEY: SecretStr
     FIREBASE_CLIENT_API_KEY: SecretStr
 
-    # --- GCP Credentials (ADD THIS SECTION) ---
-    GOOGLE_APPLICATION_CREDENTIALS: str | None = None
-
     # --- Database Component Settings ---
     POSTGRES_SERVER: str
-    POSTGRES_PORT: int
+    POSTGRES_PORT: int = 5432
     POSTGRES_USER: str
     POSTGRES_PASSWORD: SecretStr
     POSTGRES_DB: str
+
+    # Sentry DSN for error monitoring. This is optional.
+    SENTRY_DSN: Optional[SecretStr] = Field(None)
+
+    # Environment identifier for Sentry (e.g., "development", "production")
+    SENTRY_ENVIRONMENT: str = "development"
 
     @computed_field
     @property
