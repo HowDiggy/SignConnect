@@ -30,8 +30,6 @@ def configure_logging(log_level: str = "INFO") -> None:
     shared_processors: list[Processor] = [
         # Adds contextual data that is bound to the logger.
         structlog.contextvars.merge_contextvars,
-        # Adds local thread-specific context.
-        structlog.threadlocal.merge_threadlocal,
         # Adds static information to the log record.
         structlog.stdlib.add_logger_name,
         # Adds the log level (e.g., 'info', 'error') to the record.
