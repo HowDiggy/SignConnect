@@ -59,7 +59,11 @@ jobs:
 
     - name: Run Tests
       env:
-        DATABASE_URL: postgres://test_user:test_password@localhost:5432/test_db
+        POSTGRES_SERVER: localhost
+        POSTGRES_PORT: 5432
+        POSTGRES_USER: test_user
+        POSTGRES_PASSWORD: test_password
+        POSTGRES_DB: test_db
         SECRET_KEY: "a-test-secret-key-for-ci"
         DEBUG: "False"
         GOOGLE_APPLICATION_CREDENTIALS: "fake-gcp-credentials.json"
