@@ -1,16 +1,22 @@
+# src/signconnect/routers/users.py
+
 import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from starlette import status
+import structlog
 
 from .. import crud, schemas
 from ..dependencies import get_current_user, get_db
+
+logger = structlog.get_logger(__name__)
 
 # Add the prefix and tags for better organization
 router = APIRouter(
     prefix="/api/users/me",
     tags=["users"],
 )
+
 
 # The path is now "/preferences/" which is relative to the "/users/me" prefix
 @router.post("/preferences/", response_model=schemas.UserPreference)
@@ -22,22 +28,22 @@ def create_preference(
     """
     Create a new preference for the currently authenticated user.
     """
-    print("\n--- ROUTER: `create_preference` endpoint called. ---")
+    logger.info("--- ROUTER: `create_preference` endpoint called. ---")
     firebase_user_email = current_user.get("email")
-    print("\n--- Router: firebase user email set")
+    logger.info("--- Router: firebase user email set")
     db_user = crud.get_user_by_email(db, email=firebase_user_email)
-    print("\n--- db_user set by email")
+    logger.info("--- db_user set by email")
 
     if db_user is None:
-        print("\n--- db_user is none")
+        logger.info("--- db_user is none")
         user_to_create = schemas.UserCreate(
             email=firebase_user_email,
             username=current_user.get("name") or firebase_user_email,
             password="firebase_user_placeholder",
-            firebase_uid=current_user.get("uid")
+            firebase_uid=current_user.get("uid"),
         )
         db_user = crud.create_user(db=db, user=user_to_create)
-        print("\n--- db user created")
+        logger.info("--- db user created")
 
     return crud.create_user_preference(db=db, preference=preference, user_id=db_user.id)
 
@@ -61,45 +67,50 @@ def read_user_preferences(
         user_to_create = schemas.UserCreate(
             email=firebase_user_email,
             username=current_user.get("name") or firebase_user_email,
-            password="firebase_user_placeholder", # Password is not used, Firebase handles auth
+            password="firebase_user_placeholder",  # Password is not used, Firebase handles auth
             firebase_uid=current_user.get("uid"),
         )
         db_user = crud.create_user(db=db, user=user_to_create)
 
-    preferences = crud.get_user_preferences(db, user_id=db_user.id, skip=skip, limit=limit)
+    preferences = crud.get_user_preferences(
+        db, user_id=db_user.id, skip=skip, limit=limit
+    )
     return preferences
+
+
 @router.delete("/preferences/{preference_id}", response_model=schemas.UserPreference)
 def delete_preference_endpoint(
-        preference_id: uuid.UUID,
-        *,
-        db: Session = Depends(get_db),
-        current_user: dict = Depends(get_current_user),
+    preference_id: uuid.UUID,
+    *,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
 ):
     """
     Delete a specific preference by its ID for the current user.
     """
     db_user = crud.get_user_by_email(db, email=current_user.get("email"))
     if not db_user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
 
     deleted_preference = crud.delete_preference_by_id(
-        db=db,
-        preference_id=preference_id,
-        user_id=db_user.id
+        db=db, preference_id=preference_id, user_id=db_user.id
     )
 
     if deleted_preference is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Preference with ID {preference_id} not found or you do not have permission to delete it."
+            detail=f"Preference with ID {preference_id} not found or you do not have permission to delete it.",
         )
 
     return deleted_preference
 
+
 @router.put(
     "/preferences/{preference_id}",
     response_model=schemas.UserPreference,
-    summary="Update a specific preference"
+    summary="Update a specific preference",
 )
 def update_preference_endpoint(
     preference_id: uuid.UUID,
@@ -113,19 +124,21 @@ def update_preference_endpoint(
     """
     db_user = crud.get_user_by_email(db, email=current_user.get("email"))
     if not db_user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
 
     updated_preference = crud.update_preference(
         db=db,
         preference_id=preference_id,
         user_id=db_user.id,
-        preference_update=preference_update
+        preference_update=preference_update,
     )
 
     if updated_preference is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Preference with ID {preference_id} not found or you do not have permission to edit it."
+            detail=f"Preference with ID {preference_id} not found or you do not have permission to edit it.",
         )
 
     return updated_preference

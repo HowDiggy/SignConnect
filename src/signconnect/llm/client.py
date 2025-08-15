@@ -2,6 +2,9 @@
 
 import google.generativeai as genai
 from typing import List
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 
 class GeminiClient:
@@ -21,7 +24,7 @@ class GeminiClient:
         """
         genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel("gemini-1.5-flash")
-        print("GeminiClient initialized successfully.")
+        logger.info("GeminiClient initialized successfully.")
 
     def get_response_suggestions(
         self,
@@ -68,5 +71,5 @@ class GeminiClient:
             return suggestions[:3]  # Ensure we only return up to 3 suggestions
 
         except Exception as e:
-            print(f"Error generating suggestions from Gemini: {e}")
+            logger.exception(f"Error generating suggestions from Gemini: {e}")
             return []
