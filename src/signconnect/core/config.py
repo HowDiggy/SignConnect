@@ -24,9 +24,12 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: SecretStr
     FIREBASE_CLIENT_API_KEY: SecretStr
 
+    # --- GCP Credentials (ADD THIS SECTION) ---
+    GOOGLE_APPLICATION_CREDENTIALS: str | None = None
+
     # --- Database Component Settings ---
     POSTGRES_SERVER: str
-    POSTGRES_PORT: int = 5432
+    POSTGRES_PORT: int
     POSTGRES_USER: str
     POSTGRES_PASSWORD: SecretStr
     POSTGRES_DB: str
