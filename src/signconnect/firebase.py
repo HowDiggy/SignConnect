@@ -1,7 +1,10 @@
 # src/signconnect/firebase.py
 
 import firebase_admin
-from firebase_admin import auth, credentials
+from firebase_admin import auth
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 # By not passing any arguments to initialize_app(), the SDK will automatically
 # look for the GOOGLE_APPLICATION_CREDENTIALS environment variable, which
@@ -10,11 +13,12 @@ try:
     # Check if the app is already initialized to prevent errors during reloads
     if not firebase_admin._apps:
         firebase_admin.initialize_app()
-    print("Firebase Admin SDK initialized successfully.")
+    logger.info("Firebase Admin SDK initialized successfully.")
 except Exception as e:
-    print(f"Failed to initialize Firebase: {e}")
+    logger.error(f"Failed to initialize Firebase: {e}")
     # In a real production scenario, you might want to raise the exception
     # to prevent the app from starting in a misconfigured state.
+
 
 def verify_firebase_token(token: str) -> dict | None:
     """
@@ -35,5 +39,5 @@ def verify_firebase_token(token: str) -> dict | None:
         return decoded_token
     except Exception as e:
         # It's helpful to log the specific error during development
-        print(f"Error verifying Firebase token: {e}")
+        logger.error(f"Error verifying Firebase token: {e}")
         return None
