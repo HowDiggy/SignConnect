@@ -8,7 +8,6 @@ from sqlalchemy.orm import sessionmaker
 from .llm.client import GeminiClient
 
 from .core.config import Settings
-from .db.models import Base  # Corrected import for Base
 from .dependencies import get_db as get_db_dependency
 from .routers import firebase, questions, scenarios, users, websockets
 
@@ -35,15 +34,13 @@ def create_app(settings: Settings, testing: bool = False) -> FastAPI:
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
     # The factory is also responsible for creating all tables
-    Base.metadata.create_all(bind=engine)
+    # Base.metadata.create_all(bind=engine) MOVING TO ALEMCIB
 
     # Initialize the LLM client
     llm_client = GeminiClient(api_key=settings.GEMINI_API_KEY.get_secret_value())
 
     app = FastAPI(
-        lifespan=None if testing else lifespan,
-        title="SignConnect API",
-        version="0.1.0"
+        lifespan=None if testing else lifespan, title="SignConnect API", version="0.1.0"
     )
 
     # Store the client on the app state for easy access via dependencies
@@ -62,7 +59,8 @@ def create_app(settings: Settings, testing: bool = False) -> FastAPI:
 
     # Add CORS Middleware
     origins = [
-        "http://localhost", "http://localhost:5173",
+        "http://localhost",
+        "http://localhost:5173",
         "https://signconnect.paulojauregui.com",
     ]
     app.add_middleware(
