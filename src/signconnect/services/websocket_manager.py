@@ -37,7 +37,6 @@ class ConnectionManager:
         - The new WebSocket connection is accepted.
         - The WebSocket is added to the active_connections list.
         """
-        await websocket.accept()
         self.active_connections.append(websocket)
 
     def disconnect(self, websocket: WebSocket):
