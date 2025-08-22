@@ -7,7 +7,7 @@ on:
     branches: [ "main" ]
 
 jobs:
-  test: # Renamed from 'build' to 'test' for clarity
+  test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -74,18 +74,20 @@ jobs:
         poetry run pytest
 
   build_and_push:
-    # This job will only run on pushes to the main branch
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    # This job depends on the 'test' job succeeding first
     needs: test
     permissions:
       contents: read
-      packages: write # Grant permissions to write packages (container images)
+      packages: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Set image names to lowercase
+        run: |
+          echo "IMAGE_REPO=${{ github.repository }}" | tr '[:upper:]' '[:lower:]' >> $GITHUB_ENV
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -108,8 +110,8 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            ghcr.io/${{ github.repository }}/signconnect-backend:latest
-            ghcr.io/${{ github.repository }}/signconnect-backend:${{ github.sha }}
+            ghcr.io/${{ env.IMAGE_REPO }}/signconnect-backend:latest
+            ghcr.io/${{ env.IMAGE_REPO }}/signconnect-backend:${{ github.sha }}
 
       - name: Build and push frontend image
         uses: docker/build-push-action@v5
@@ -119,5 +121,5 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            ghcr.io/${{ github.repository }}/signconnect-frontend:latest
-            ghcr.io/${{ github.repository }}/signconnect-frontend:${{ github.sha }}
+            ghcr.io/${{ env.IMAGE_REPO }}/signconnect-frontend:latest
+            ghcr.io/${{ env.IMAGE_REPO }}/signconnect-frontend:${{ github.sha }}
