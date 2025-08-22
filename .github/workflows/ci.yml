@@ -1,4 +1,4 @@
-name: SignConnect CI
+name: Python CI
 
 on:
   push:
@@ -85,6 +85,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Convert repository owner to lowercase
+        id: string
+        uses: ASzc/change-string-case-action@v6
+        with:
+          string: ${{ github.repository_owner }}
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -106,8 +112,8 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            ghcr.io/${{ github.repository_owner }}/signconnect-backend:latest
-            ghcr.io/${{ github.repository_owner }}/signconnect-backend:${{ github.sha }}
+            ghcr.io/${{ steps.string.outputs.lowercase }}/signconnect-backend:latest
+            ghcr.io/${{ steps.string.outputs.lowercase }}/signconnect-backend:${{ github.sha }}
 
       - name: Build and push frontend image
         uses: docker/build-push-action@v5
@@ -117,5 +123,5 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            ghcr.io/${{ github.repository_owner }}/signconnect-frontend:latest
-            ghcr.io/${{ github.repository_owner }}/signconnect-frontend:${{ github.sha }}
+            ghcr.io/${{ steps.string.outputs.lowercase }}/signconnect-frontend:latest
+            ghcr.io/${{ steps.string.outputs.lowercase }}/signconnect-frontend:${{ github.sha }}
