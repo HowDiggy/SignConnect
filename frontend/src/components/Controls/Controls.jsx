@@ -15,11 +15,13 @@ function Controls({ user, onNewTranscription, onNewSuggestions }) {
 
     // --- 1. Establish WebSocket Connection ---
     const token = await user.getIdToken();
-    const wsUrl = `ws://localhost:8000/api/ws?token=${token}`;
+    // Point directly to the backend's unsecured websocket for local dev
+    const wsUrl = `ws://localhost:8000/api/ws`;
     socketRef.current = new WebSocket(wsUrl);
 
     socketRef.current.onopen = () => {
       console.log("WebSocket connection established.");
+      socketRef.current.send(token);
       setIsConnected(true);
 
       // --- 2. Start Audio Recording ---

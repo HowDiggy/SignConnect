@@ -1,20 +1,25 @@
 # src/signconnect/routers/websockets.py
 
 import asyncio
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
+from fastapi import (
+    APIRouter,
+    WebSocket,
+    WebSocketDisconnect,
+    Depends,
+    WebSocketException,
+    status,
+)
 from sqlalchemy.orm import Session
 from google.cloud import speech
 import structlog
 
-# Import the new services and dependencies
 from signconnect.services import websocket_manager as manager_service
-from signconnect.dependencies import get_current_user_ws, get_db
+from signconnect.dependencies import get_db
+from signconnect.firebase import verify_firebase_token
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api", tags=["websockets"])
-
-# Create a single instance of the ConnectionManager
 manager = manager_service.ConnectionManager()
 
 
@@ -65,29 +70,51 @@ async def audio_processor(websocket: WebSocket, audio_queue: asyncio.Queue):
         logger.info("Audio processor finished.")
 
 
+async def authenticated_websocket_handler(websocket: WebSocket, db: Session) -> dict:
+    """
+    Handles the initial authentication phase of the WebSocket connection.
+    """
+    await websocket.accept()
+    try:
+        token = await websocket.receive_text()
+        user = verify_firebase_token(token)
+        if not user:
+            raise WebSocketException(
+                code=status.WS_1008_POLICY_VIOLATION,
+                reason="Invalid authentication token",
+            )
+        return user
+    except WebSocketException as e:
+        await websocket.close(code=e.code, reason=e.reason)
+        raise
+    except Exception as e:
+        await websocket.close(
+            code=status.WS_1011_INTERNAL_ERROR,
+            reason=f"An unexpected error occurred: {e}",
+        )
+        raise
+
+
 @router.websocket("/ws")
-async def websocket_endpoint(
-    websocket: WebSocket,
-    db: Session = Depends(get_db),
-    user: dict = Depends(get_current_user_ws),
-):
+async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)):
     """
     Acts as a coordinator for the WebSocket connection.
     - Manages connection lifecycle.
     - Starts the audio processing task.
     - Listens for incoming messages and delegates them to the message handler.
     """
-    await manager.connect(websocket)
-    logger.info(f"WebSocket connection accepted for user: {user.get('email')}")
-
-    llm_client = websocket.app.state.llm_client
-    audio_queue = asyncio.Queue()
-    process_task = asyncio.create_task(audio_processor(websocket, audio_queue))
-
+    user = None
     try:
+        user = await authenticated_websocket_handler(websocket, db)
+        await manager.connect(websocket)
+        logger.info(f"WebSocket connection accepted for user: {user.get('email')}")
+
+        llm_client = websocket.app.state.llm_client
+        audio_queue = asyncio.Queue()
+        process_task = asyncio.create_task(audio_processor(websocket, audio_queue))
+
         while True:
             message = await websocket.receive_json()
-            # Delegate message processing to the service layer
             await manager_service.handle_message(
                 manager=manager,
                 websocket=websocket,
@@ -97,20 +124,28 @@ async def websocket_endpoint(
                 llm_client=llm_client,
                 audio_queue=audio_queue,
             )
+
     except WebSocketDisconnect:
-        logger.info(f"Client disconnected: {user.get('email')}")
-    except Exception as e:
-        logger.exception(f"WebSocket error for user {user.get('email')}: {e}")
-    finally:
-        # Gracefully shut down resources
-        manager.disconnect(websocket)
-        await audio_queue.put(None)
-        if not process_task.done():
-            process_task.cancel()
-        try:
-            await process_task
-        except asyncio.CancelledError:
-            pass
         logger.info(
-            f"Connection closed and resources cleaned up for {user.get('email')}."
+            f"Client disconnected: {user.get('email') if user else 'unauthenticated'}"
         )
+    except Exception as e:
+        logger.exception(
+            f"WebSocket error for user {user.get('email') if user else 'unauthenticated'}: {e}"
+        )
+    finally:
+        if user:
+            manager.disconnect(websocket)
+            # 1. Gracefully tell the audio processor to exit its loop
+            await audio_queue.put(None)
+            # 2. Cancel the background task if it's still running
+            if not process_task.done():
+                process_task.cancel()
+            try:
+                # 3. Wait for the task to acknowledge the cancellation
+                await process_task
+            except asyncio.CancelledError:
+                pass  # This is expected on cancellation
+            logger.info(
+                f"Connection closed and resources cleaned up for {user.get('email')}."
+            )
