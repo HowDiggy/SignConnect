@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     strategy:
       matrix:
         python-version: ["3.12"]
@@ -37,9 +37,6 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Install system dependencies
-      run: sudo apt update && sudo apt install -y libpq-dev build-essential
-
     - name: Install Poetry
       uses: snok/install-poetry@v1
       with:
@@ -54,7 +51,7 @@ jobs:
         key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
 
     - name: Install Dependencies
-      if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+      # if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
       run: poetry install --no-interaction --no-root
 
     - name: Run Tests
@@ -75,7 +72,7 @@ jobs:
 
   build_and_push:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: test
     permissions:
       contents: read
