@@ -111,6 +111,8 @@ jobs:
           tags: |
             ghcr.io/${{ steps.string.outputs.lowercase }}/signconnect-backend:latest
             ghcr.io/${{ steps.string.outputs.lowercase }}/signconnect-backend:${{ github.sha }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache
 
       - name: Build and push frontend image
         uses: docker/build-push-action@v5
@@ -121,3 +123,5 @@ jobs:
           tags: |
             ghcr.io/${{ steps.string.outputs.lowercase }}/signconnect-frontend:latest
             ghcr.io/${{ steps.string.outputs.lowercase }}/signconnect-frontend:${{ github.sha }}
+          cache-from: type=local,src=/tmp/.buildx-cache-frontend
+          cache-to: type=local,dest=/tmp/.buildx-cache-frontend
