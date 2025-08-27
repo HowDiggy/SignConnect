@@ -1,5 +1,4 @@
 # SignConnect
-### Breaking Communication Barriers
 
 
 ## Project Overview
