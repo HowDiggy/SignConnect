@@ -100,4 +100,4 @@ This project is currently a personal portfolio project and not open for contribu
 
 ---
 
-SignConnect: Breaking Communication Barriers
+SignConnect: Bringing the conversation to everyone.
