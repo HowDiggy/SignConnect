@@ -1,8 +1,6 @@
-# SignConnect
+# <center>SignConnect</center>
+#### <center>Breaking Communication Barriers</center>
 
-<div align="center">
-  <h3>Breaking Communication Barriers</h3>
-</div>
 
 ## Project Overview
 
@@ -103,6 +101,4 @@ This project is currently a personal portfolio project and not open for contribu
 
 ---
 
-<div align="center">
-  <i>SignConnect: Bringing the conversation to everyone.</i>
-</div>
+  <center>SignConnect: Bringing the conversation to everyone.</center>
