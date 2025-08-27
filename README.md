@@ -17,7 +17,7 @@ For deaf and non-verbal individuals, spontaneous conversations can be challengin
 
 ### Our Solution
 
-SignConnect transforms spoken language into text in real-time and provides intelligent, contextual response suggestions based on the user's preferences and conversation history.
+SignConnect transforms spoken language into text in real-time and provides intelligent, contextual response suggestions based on the user's preferences and pre-configured scenarios.
 
 ## Key Features
 
@@ -29,12 +29,17 @@ SignConnect transforms spoken language into text in real-time and provides intel
 
 ## Technology Stack
 
-- **Frontend**: React.js (Progressive Web App)
-- **Backend**: Python with FastAPI
-- **Database**: PostgreSQL with pgvector extension for semantic search
-- **Speech Processing**: Google Cloud Speech-to-Text
-- **Vector Embeddings**: Google Gemini
-- **Deployment**: AWS/GCP/Azure/OCI (TBD)
+-   **Frontend**: React.js (built with Vite)
+-   **Backend**: Python with FastAPI
+-   **Database**: PostgreSQL with the `pgvector` extension for vector similarity search.
+-   **Database Migrations**: **Alembic** for managing database schema changes.
+-   **Speech Processing**: Google Cloud Speech-to-Text
+-   **Vector Embeddings & AI**: Google Gemini
+-   **Authentication**: Firebase Authentication
+-   **Containerization**: Docker and Docker Compose
+-   **CI/CD**: GitHub Actions
+-   **Error Monitoring**: Sentry
+-   **Deployment**: OCI Kubernetes
 
 ### **4. Project Structure (Monorepo)**
 
@@ -42,68 +47,34 @@ We are using a standard monorepo structure that cleanly separates the backend an
 
 ```
 SignConnect/
-├── .env                  # Backend environment variables (ignored)
-├── .env.example          # Example environment variables
-├── .gitignore            # Files and directories ignored by Git
-├── backend.Dockerfile    # Dockerfile for the FastAPI backend service
-├── docker-compose.yml    # Defines and configures all services (db, backend, frontend)
-├── frontend.Dockerfile   # Dockerfile for the React frontend service
-├── gcp-credentials.json  # Google Cloud service account key (ignored)
-├── poetry.lock           # Exact versions of installed Python dependencies
-├── poetry.toml           # Poetry virtual environment configuration
-├── pyproject.toml        # Python project and dependency definitions
-├── README.md             # Main project overview and instructions
-├── ROADMAP.md            # Project vision, status, and future plans
-|
-├── frontend/             # All Frontend React code
-│   ├── .env.local        # Frontend environment variables (ignored)
-│   ├── index.html        # The single HTML page for the React app
-│   ├── package.json      # Frontend dependencies (npm)
-│   ├── vite.config.js    # Vite build tool configuration
+├── .github/                # CI/CD workflows
+│   └── workflows/
+│       └── ci.yml
+├── frontend/               # All Frontend React code
+│   ├── public/
 │   └── src/
-│       ├── App.jsx       # Main application component and state manager
-│       ├── main.jsx      # React application entry point
-│       ├── firebaseConfig.js # Firebase client-side initialization
-│       └── components/   # Reusable React UI components
-│           ├── Auth/
-│           ├── Controls/
-│           ├── Suggestions/
-│           └── TranscriptionDisplay/
-|
-├── src/                   # All backend Python code
+├── src/                    # All backend Python code
+│   ├── alembic/            # Alembic migration scripts
+│   │   └── versions/
 │   └── signconnect/
-│       ├── core/          # Core configurations and settings
-│       │   └── config.py
-│       ├── db/            # Database setup and ORM models
-│       │   ├── database.py
-│       │   ├── models.py
-│       │   └── test_database.py
-│       ├── llm/           # Large Language Model (LLM) interaction logic
-│       │   └── client.py
-│       ├── routers/       # FastAPI API route definitions
-│       │   ├── firebase.py
-│       │   ├── questions.py
-│       │   ├── scenarios.py
-│       │   ├── users.py
-│       │   └── websockets.py
-│       ├── __init__.py    # Python package indicator
-│       ├── app_factory.py # FastAPI application factory
-│       ├── crud.py        # CRUD operations for database models
-│       ├── dependencies.py# FastAPI dependency injection functions
-│       ├── firebase.py    # Firebase Admin SDK integration
-│       ├── main.py        # Main FastAPI application entry point
-│       └── schemas.py     # Pydantic data validation models
-└── tests/                 # All test files (unit, integration, etc.)
-    ├── integration/       # Integration tests (e.g., database interactions)
-    │   └── test_vector_search.py
-    ├── __init__.py        # Python package indicator for tests
-    ├── conftest.py        # Pytest fixtures for tests
-    ├── test_llm_client.py
-    ├── test_preferences.py
-    ├── test_questions.py
-    ├── test_scenarios.py
-    ├── test_users.py
-    └── test_websockets.py
+│       ├── core/           # Core configurations and settings
+│       ├── db/             # Database setup and ORM models
+│       ├── llm/            # Large Language Model (LLM) interaction
+│       ├── routers/        # FastAPI API route definitions
+│       └── services/       # Business logic and service layer
+├── tests/                  # All backend tests
+│   ├── integration/
+│   └── services/
+├── .env.example            # Example environment variables
+├── .gitignore
+├── alembic.ini             # Alembic configuration
+├── backend.Dockerfile
+├── docker-compose.yml
+├── poetry.lock
+├── poetry.toml
+├── pyproject.toml          # Python project and dependency definitions
+├── README.md               # This file
+└── ROADMAP.md              # Project vision and future plans
 ```
 
 ## Development Roadmap
