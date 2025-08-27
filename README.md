@@ -1,5 +1,5 @@
-# <center>SignConnect</center>
-#### <center>Breaking Communication Barriers</center>
+# SignConnect
+### Breaking Communication Barriers
 
 
 ## Project Overview
@@ -101,4 +101,4 @@ This project is currently a personal portfolio project and not open for contribu
 
 ---
 
-  <center>SignConnect: Bringing the conversation to everyone.</center>
+SignConnect: Bringing the conversation to everyone.
