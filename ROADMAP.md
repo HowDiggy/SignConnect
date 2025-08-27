@@ -1,80 +1,70 @@
+# SignConnect Project Roadmap
+
+## Vision
+
+The vision for SignConnect is to become a robust, go-to assistive communication tool for the deaf and non-verbal communities. It aims to be not just a functional application, but a reliable, scalable, and intuitive platform that seamlessly integrates into users' daily lives, making communication effortless and natural.
 
 ---
 
-## Project Recap: SignConnect
+## Milestone 1: Core MVP & Production Readiness (Completed)
 
-### **1. The Vision & Core Mission**
+This phase focused on building the core application and hardening the backend to ensure it's stable, maintainable, and observable.
 
-- **Project Name:** SignConnect
+-   **[✓] Core Application**:
+    -   Implemented real-time speech-to-text transcription.
+    -   Developed AI-powered response suggestions using Google Gemini.
+    -   Integrated `pgvector` for semantic matching of conversation context.
+    -   Built a functional React frontend for user interaction.
+    -   Secured the application with Firebase Authentication.
+-   **[✓] Production-Ready Backend**:
+    -   Containerized all services using Docker.
+    -   Implemented structured logging with `structlog`.
+    -   Integrated Sentry for real-time error monitoring and performance tracing.
+    -   Established robust database migration management with **Alembic**.
+-   **[✓] Architectural Improvements**:
+    -   Refactored the WebSocket handling into a modular, testable service (`WebSocketManager`).
+    -   Implemented a `src` layout and absolute imports for a cleaner, more maintainable Python backend.
+-   **[✓] Automated CI/CD Pipeline**:
+    -   Created a GitHub Actions workflow for automated testing.
+    -   Automated the build and push of multi-architecture Docker images to GHCR.
 
-- **Mission:** To build an assistive Progressive Web App (PWA) that empowers deaf and non-verbal individuals by providing real-time, AI-powered communication support.
+---
 
-- **Core Loop:** The application listens to spoken language, transcribes it to text, and suggests relevant, personalized responses for the user based on saved user preferences and saved scenario question:answer pairs.
+## Milestone 2: Deployment & Operational Excellence (In Progress / Near-Term)
 
-- **End Goal:** A high-impact portfolio project demonstrating a wide range of modern software engineering skills, with the potential to become a real-world SaaS business.
+This phase is focused on deploying the application to a production environment and establishing best practices for monitoring and maintenance.
 
+-   **[ ] Deployment to Kubernetes**:
+    -   Create Kubernetes manifests (Deployment, Service, Ingress, etc.) for all services.
+    -   Implement Kubernetes Secrets management for handling sensitive credentials.
+    -   Set up a GitOps workflow using **ArgoCD** to automatically sync the cluster state with the Git repository.
+-   **[ ] API Documentation**:
+    -   Auto-generate and publish interactive API documentation using FastAPI's built-in OpenAPI/Swagger UI.
+-   **[ ] Performance Benchmarking**:
+    -   Establish baseline performance metrics (requests/second, latency).
+    -   Conduct initial load testing to identify bottlenecks before public use.
+-   **[ ] Enhanced User Feedback Mechanism**:
+    -   Add a simple in-app feature for users to report bugs or suggest improvements, which could integrate with Sentry's feedback feature.
 
-### **2. Development Environment & Tools**
+---
 
-- **Backend Framework:** **Python** with **FastAPI** for creating a high-performance, asynchronous API.
+## Milestone 3: Feature Enhancement & Scalability (Mid-Term)
 
-- **Frontend Language:** **JavaScript** with **React**.
+With the application stable in production, this phase will focus on enriching the user experience and ensuring the platform can handle growth.
 
-- **Database:** **PostgreSQL** running in a **Docker** container. We are using the `ankane/pgvector` image to enable vector search capabilities.
+-   **[ ] Advanced Personalization**:
+    -   Allow the LLM to learn a user's unique communication style and vocabulary for even more personalized suggestions.
+    -   Implement a user-facing dashboard to manage and fine-tune AI preferences.
+-   **[ ] Multi-Language Support**:
+    -   Expand the speech-to-text and response suggestion capabilities to support languages other than English.
+-   **[ ] Monitoring & Observability Dashboards**:
+    -   Create Grafana dashboards to visualize key application metrics (e.g., active users, API latency, error rates) for proactive monitoring.
 
-- **Dependency Management:** **Poetry** for managing all Python packages and project dependencies in a `pyproject.toml` file.
+---
 
-### **3. Workflow & Methods**
+## Long-Term Vision
 
-- **Version Control:** We are using **Git** and pushing our code to a remote repository on **GitHub**.
+These are ambitious, long-term goals that would significantly expand the impact and capabilities of SignConnect.
 
-- **Authentication:** We have pivoted to a professional, third-party authentication service, **Firebase Authentication**, to securely manage all user sign-up, login, and identity verification. We are using Firebase ID tokens (JWTs) to secure our backend.
-
-- **API Testing:** We are using **Postman** to manually test our API endpoints as we build them, ensuring they work correctly before integrating them with the frontend.
-
-- **Database Migrations:** For our current development phase, we are handling database schema changes by manually resetting the Docker volume. As the project matures, we would implement a formal migration tool like **Alembic**.
-
-
-### **4. Current Status & Roadmap**
-
-## What We've Completed (The Foundation)
-
-We have successfully built a robust foundation. We have:
-
-- **A Scalable Backend Architecture:** Built with Python and FastAPI, using a professional src layout and Poetry for dependency management.
-
-- **A Containerized Approach:** A PostgreSQL database, backend, and fronted Docker Compose setup.
-
-- **Real-Time Transcription Engine:** A secure WebSocket that captures microphone audio from the frontend and uses the Google Cloud Speech-to-Text API to produce a live, "real-time typing" transcript.
-
-- **Secure User Management:** A complete pivot to a professional, third-party authentication system (Firebase Authentication) to securely manage user sign-up and login, protecting our application with verified identity tokens.
-
-- **Initial AI Suggestions:** A successful integration with the Gemini API to take a final transcript and generate relevant response suggestions.
-
-- **A Functional Frontend:** An interactive web interface that successfully ties all these backend services together, displaying the live transcript and clickable suggestion buttons.
-
-- **Implemented Contextual Understanding via Vector Search:** Integrated a vector database extension (pgvector) to store user-defined questions. When a new transcript comes in, we convert it to a vector embedding and perform a semantic search to find the most similar question the user has already prepared.
-
-- **Enhance the AI Prompt:** Upgraded our call to the Gemini API. Instead of just sending the transcript, we send a rich prompt containing the transcript + user preferences + the results of the vector search. This allows Gemini to provide hyper-relevant, personalized suggestions.
-
-- **Robust Testing Suite:** Unit and integration tests for solid test coverage.
-
-
-#### **5. Where We Are Now (Our Next Step):**
-
-**User Free Response:** If none of the responses suggested by the LLM are suitable answers to the question being asked, the user has a space to fill in a response with their keyboard. This becomes a new question:answer pair and saved under appropriate scenario.
-
-#### **6. What's Left to Do:**
-
-- LLM suggestions for possible questions user may encounter for upcoming scenario. User is presented with possible questions and those they choose to answer are saved as question:answer pairs in that respective scenario.
-- Design Transcript flow for conversation: when a new conversation kicks of, the history should be saved as the conversation continues to allow context into what has been said.
-- Post Conversation: Users should be able to take a previous/completed conversation, and turn that into question:response pairs to save to their profile. User context should grow and recommendations improve the more the service is used.
-- Refine the UI/UX to be clean, intuitive, and accessible.
-- Integrate payment processor for membership service.
-- Write comprehensive documentation (README, API docs).
-- Implement improved logging
-- Containerize complete application.
-- Write Kubernetes deployment manifests (`Deployment`, `Service`, `Ingress`) to deploy containers to existing Oracle Cloud cluster.
-- Set up a CI/CD pipeline using GitHub Actions to automate testing and deployment to ArgoCD.
-
-**Polish, Deploy, Iterate (continuous loop):** Refine the UI, write tests, refactor code, and deploy the application to the cloud.
+-   **[ ] Native Mobile Application**: Develop a dedicated iOS and Android application for a more integrated and accessible mobile experience.
+-   **[ ] Offline Functionality**: Explore on-device models to provide transcription and basic response features even without an internet connection.
