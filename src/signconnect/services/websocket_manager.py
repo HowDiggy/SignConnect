@@ -88,28 +88,38 @@ async def handle_message(
 ):
     """
     Processes a single JSON message from a WebSocket client.
-
-    This function acts as a dispatcher, delegating tasks based on message type.
     """
     msg_type = message.get("type")
 
     if msg_type == "audio":
-        # Handle incoming audio chunks
         audio_chunk = base64.b64decode(message["data"])
         await audio_queue.put(audio_chunk)
 
     elif msg_type == "get_suggestions":
-        # Use the LLM client to generate suggestions
         transcript = message.get("transcript", "")
         if transcript:
             logger.info(f"Received request for suggestions for: {transcript}")
 
-            # Get user data for personalized suggestions
             db_user = crud.get_user_by_email(db, email=user.get("email"))
             if db_user:
+                # Fetch both preferences and the most similar question
                 preferences = crud.get_user_preferences(db, user_id=db_user.id)
                 preference_texts = [pref.preference_text for pref in preferences]
+
+                # Use the vector search to find relevant context from scenarios
+                similar_question = crud.find_similar_question(
+                    db, query_text=transcript, user_id=db_user.id
+                )
+
+                # Add the similar question's context to the prompt if found
                 conversation_history = []  # Placeholder for future enhancement
+                if similar_question:
+                    history_context = (
+                        f"Recall this related question and answer: "
+                        f"Q: '{similar_question.question_text}' "
+                        f"A: '{similar_question.user_answer_text}'"
+                    )
+                    conversation_history.append(history_context)
 
                 suggestions = llm_client.get_response_suggestions(
                     transcript=transcript,
@@ -117,7 +127,8 @@ async def handle_message(
                     conversation_history=conversation_history,
                 )
             else:
-                suggestions = ["Yes", "No", "Can you repeat that?"]  # Fallback
+                # Fallback if user somehow isn't in DB
+                suggestions = ["Yes", "No", "Can you repeat that?"]
 
             await manager.send_personal_json(
                 {"type": "suggestions", "data": suggestions}, websocket
