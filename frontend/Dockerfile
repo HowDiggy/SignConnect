@@ -1,23 +1,23 @@
-# Use an official Node.js runtime as a parent image
-FROM node:20
+# frontend/Dockerfile
 
-# Set the working directory in the container
+# --- Build Stage ---
+FROM node:20 as builder
+
 WORKDIR /app
 
-# Copy package.json and package-lock.json to the working directory.
-# This is done as a separate step to take advantage of Docker's layer caching.
-# The dependencies will only be re-installed if package*.json changes.
 COPY package*.json ./
-
-# Install any needed packages
 RUN npm install
-
-# Bundle the rest of the app's source code
 COPY . .
+RUN npm run build
 
-# Your app binds to port 5173, so expose it
-EXPOSE 5173
+# --- Final Stage ---
+FROM nginx:stable-alpine
 
-# The command to run when the container starts.
-# --host is necessary to make the Vite dev server accessible from outside the container.
-CMD ["npm", "run", "dev", "--", "--host"]
+# Copy the built assets from the builder stage
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Expose port 80
+EXPOSE 80
+
+# The default command for the nginx image is to start the server
+CMD ["nginx", "-g", "daemon off;"]
