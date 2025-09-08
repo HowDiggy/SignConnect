@@ -26,3 +26,4 @@ firebase-credentials.json
 __pycache__
 .coverage*
 .coverage
+secret.env

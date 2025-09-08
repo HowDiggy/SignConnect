@@ -13,7 +13,7 @@ from .core.config import Settings
 # Import the new logging configuration function
 from .core.logging import configure_logging
 from .dependencies import get_db as get_db_dependency
-from .routers import firebase, questions, scenarios, users, websockets
+from .routers import firebase, questions, scenarios, users, websockets, health
 from .llm.client import GeminiClient
 
 
@@ -111,5 +111,6 @@ def create_app(settings: Settings, testing: bool = False) -> FastAPI:
     app.include_router(questions.router)
     app.include_router(websockets.router)
     app.include_router(firebase.router)
+    app.include_router(health.router)
 
     return app
