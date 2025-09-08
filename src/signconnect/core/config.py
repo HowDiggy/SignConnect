@@ -24,7 +24,7 @@ class Settings(BaseSettings):
 
     # --- LLM and Firebase API Keys ---
     GEMINI_API_KEY: SecretStr
-    FIREBASE_CLIENT_API_KEY: SecretStr
+    FIREBASE_CLIENT_API_KEY: Optional[SecretStr] = None
 
     # --- Database Component Settings ---
     POSTGRES_SERVER: str
