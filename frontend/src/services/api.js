@@ -1,13 +1,15 @@
 // frontend/src/services/api.js
-// Replace the entire file with this fixed version
 
-import { auth } from '../firebaseConfig';
+// --- CHANGE: Import the authPromise instead of the static auth object ---
+import { authPromise } from '../firebaseConfig';
 
-// Use the correct base URL for Docker environment
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+// The API_BASE_URL is not strictly necessary due to the Ingress proxy,
+// but we'll leave it in case you have other routing configurations.
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
-// A helper function to get the user's auth token
+// --- CHANGE: The helper function now waits for the auth object to be ready ---
 const getAuthToken = async () => {
+  const auth = await authPromise; // Wait for Firebase to initialize
   if (!auth.currentUser) throw new Error("User not authenticated");
   return await auth.currentUser.getIdToken();
 };
@@ -52,7 +54,7 @@ const fetchAuthenticated = async (url, options = {}) => {
   }
 };
 
-// --- Preferences API ---
+// --- Preferences API (No changes needed below this line) ---
 export const getPreferences = async () => {
   return await fetchAuthenticated('/api/users/me/preferences/');
 };

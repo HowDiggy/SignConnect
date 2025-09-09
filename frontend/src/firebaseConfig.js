@@ -1,20 +1,31 @@
-// frontend/src/firebaseConfig.js
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 
-// Your web app's Firebase configuration from environment variables
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+/**
+ * Asynchronously fetches the Firebase configuration from the backend server.
+ * @returns {Promise<object>} A promise that resolves to the Firebase config object.
+ * @throws {Error} If the network response is not ok.
+ */
+const getFirebaseConfig = async () => {
+  const response = await fetch('/api/firebase-config');
+  if (!response.ok) {
+    throw new Error('Failed to fetch Firebase config from backend.');
+  }
+  return response.json();
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+/**
+ * Initializes the Firebase app and returns the auth instance.
+ * This function is now the single source for getting the auth object.
+ * @returns {Promise<import('firebase/auth').Auth>} A promise that resolves to the auth instance.
+ */
+const initializeAuth = async () => {
+  const firebaseConfig = await getFirebaseConfig();
+  const app = initializeApp(firebaseConfig);
+  return getAuth(app);
+};
 
-// Export the auth service to be used in other components
-export const auth = getAuth(app);
+// --- THIS IS THE KEY CHANGE ---
+// We now export a promise that resolves to the auth object.
+// We call our new async function to get it.
+export const authPromise = initializeAuth();

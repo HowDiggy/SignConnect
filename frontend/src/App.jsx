@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from './firebaseConfig';
+// --- CHANGE: Import the promise instead of the static object ---
+import { authPromise } from './firebaseConfig';
 import Auth from './components/Auth/Auth';
 import Controls from './components/Controls/Controls';
 import ConversationView from './components/ConversationView/ConversationView';
@@ -11,6 +12,9 @@ import './App.css';
 
 function App() {
   const [user, setUser] = useState(null);
+  // --- ADD: State to hold the resolved auth object and loading status ---
+  const [auth, setAuth] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   // Replace transcription state with conversation state
   const [conversation, setConversation] = useState([]);
@@ -18,18 +22,31 @@ function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      console.log("Auth state changed:", currentUser?.email || "No user");
-      setUser(currentUser);
-      if (!currentUser) {
-        setConversation([]);
-        setSuggestions([]);
-      }
+    // --- CHANGE: Wait for the authPromise to resolve ---
+    authPromise.then(authInstance => {
+      setAuth(authInstance); // Save the resolved auth instance
+      const unsubscribe = onAuthStateChanged(authInstance, (currentUser) => {
+        console.log("Auth state changed:", currentUser?.email || "No user");
+        setUser(currentUser);
+        if (!currentUser) {
+          setConversation([]);
+          setSuggestions([]);
+        }
+        setLoading(false); // Firebase is initialized and auth state is known
+      });
+      return () => unsubscribe();
+    }).catch(error => {
+        console.error("Firebase auth initialization failed", error);
+        setLoading(false); // Stop loading even if there's an error
     });
-    return () => unsubscribe();
-  }, []);
+  }, []); // This effect runs only once on mount
 
-  // Fixed function to handle new transcripts
+  // --- ADD: A loading screen while waiting for Firebase ---
+  if (loading) {
+    return <div className="loading-container"><h1>Loading...</h1></div>;
+  }
+
+  // --- All handler functions (handleNewTranscriptPart, etc.) remain exactly the same ---
   const handleNewTranscriptPart = (transcriptPart) => {
     console.log("App.jsx: Received new transcript:", transcriptPart);
     const newMessage = {
@@ -45,13 +62,11 @@ function App() {
     });
   };
 
-  // Fixed function to handle new suggestions
   const handleNewSuggestions = (newSuggestions) => {
     console.log("App.jsx: Received new suggestions:", newSuggestions);
     setSuggestions(newSuggestions);
   };
 
-  // Fixed function for when a user clicks a suggestion
   const handleSuggestionSelect = (suggestionText) => {
     console.log("App.jsx: Suggestion selected:", suggestionText);
     const newMessage = {
@@ -68,7 +83,6 @@ function App() {
     setSuggestions([]);
   };
 
-  // Fixed function for the free response input
   const handleUserMessageSend = (messageText) => {
     console.log("App.jsx: User message sent:", messageText);
     const newMessage = {
@@ -95,7 +109,8 @@ function App() {
               Settings
             </button>
           )}
-          <Auth user={user} />
+          {/* --- CHANGE: Pass the resolved auth object to the Auth component --- */}
+          <Auth user={user} auth={auth} />
         </div>
       </header>
       <main>
