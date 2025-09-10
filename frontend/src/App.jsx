@@ -104,7 +104,7 @@ function App() {
             </button>
           )}
           {/* The Auth component now implicitly uses the imported 'auth' object */}
-          <Auth user={user} />
+          <Auth user={user} auth={auth} />
         </div>
       </header>
       <main>

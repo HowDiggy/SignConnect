@@ -52,6 +52,7 @@ function Auth({ user, auth }) {
   const handleSignUp = async (e) => {
     // ... (This function remains the same)
     e.preventDefault();
+    if (!auth) return; // Add safety check
     try {
       // This 'auth' variable now correctly refers to the prop
       await createUserWithEmailAndPassword(auth, email, password);
@@ -66,6 +67,7 @@ function Auth({ user, auth }) {
   const handleEmailSignIn = async (e) => {
     // ... (This function remains the same)
     e.preventDefault();
+    if (!auth) return; // add safety check
     try {
       // This 'auth' variable now correctly refers to the prop
       await signInWithEmailAndPassword(auth, email, password);
@@ -79,7 +81,7 @@ function Auth({ user, auth }) {
   };
 
   const handleSignOut = async () => {
-    // ... (This function remains the same)
+    if (!auth) return;
     try {
       // This 'auth' variable now correctly refers to the prop
       await signOut(auth);
