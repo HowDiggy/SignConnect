@@ -1,44 +1,31 @@
-# src/routers/firebase.py
-
-from fastapi import APIRouter
-from typing import Dict, Any
+# src/signconnect/routers/firebase.py
+from fastapi import APIRouter, HTTPException
 from ..core.config import get_settings
 import structlog
 
 logger = structlog.get_logger(__name__)
 
-
-router = APIRouter(
-    prefix="/api",
-    tags=["Firebase"],
-)
+router = APIRouter(prefix="/api", tags=["Firebase"])
 
 
-@router.get(
-    "/firebase-config",
-    response_model=Dict[str, Any],
-    summary="Get Firebase client configuration",
-)
-def get_firebase_client_config() -> Dict[str, Any]:
-    """
-    Retrieves the Firebase client-side configuration for frontend applications.
-
-    This endpoint securely provides the necessary Firebase initialization
-    parameters (including the client API key) without exposing sensitive
-    credentials directly in the frontend's source code.
-
-    Pre-conditions:
-    - The FIREBASE_CLIENT_API_KEY must be set in the environment variables
-      or .env file accessible by the backend.
-    - The backend must be properly configured to load settings via get_settings().
-
-    Post-conditions:
-    - Returns a dictionary containing the Firebase configuration parameters.
-    - The API key included is specifically restricted for client-side use.
-    """
+@router.get("/firebase-config")
+def get_firebase_config():
     settings = get_settings()
-    firebase_config = {
-        "apiKey": settings.FIREBASE_CLIENT_API_KEY,
+
+    # UNWRAP the SecretStr -> actual string
+    api_key = (
+        settings.FIREBASE_CLIENT_API_KEY.get_secret_value()
+        if settings.FIREBASE_CLIENT_API_KEY
+        else None
+    )
+    if not api_key:
+        # Fail fast so we don't silently send "**********"
+        raise HTTPException(
+            status_code=500, detail="FIREBASE_CLIENT_API_KEY is not set"
+        )
+
+    return {
+        "apiKey": api_key,
         "authDomain": "robust-form-464822-c0.firebaseapp.com",
         "projectId": "robust-form-464822-c0",
         "storageBucket": "robust-form-464822-c0.firebasestorage.app",
@@ -46,4 +33,3 @@ def get_firebase_client_config() -> Dict[str, Any]:
         "appId": "1:300931117814:web:ea51ca90c5bd58a3a1f2d7",
         "measurementId": "G-HZH7QK7NL9",
     }
-    return firebase_config
