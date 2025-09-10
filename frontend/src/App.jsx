@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-// --- CHANGE: Import the promise instead of the static object ---
-import { authPromise } from './firebaseConfig';
+// --- CHANGE: Import the initializer and the (initially undefined) auth object ---
+import { auth, initializeFirebase } from './firebaseConfig';
 import Auth from './components/Auth/Auth';
 import Controls from './components/Controls/Controls';
 import ConversationView from './components/ConversationView/ConversationView';
@@ -12,92 +12,82 @@ import './App.css';
 
 function App() {
   const [user, setUser] = useState(null);
-  // --- ADD: State to hold the resolved auth object and loading status ---
-  const [auth, setAuth] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // --- CHANGE: Use a boolean to track if Firebase is ready ---
+  const [isFirebaseInitialized, setIsFirebaseInitialized] = useState(false);
 
-  // Replace transcription state with conversation state
   const [conversation, setConversation] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
+  // Effect to initialize Firebase ONCE when the app component mounts
   useEffect(() => {
-    // --- CHANGE: Wait for the authPromise to resolve ---
-    authPromise.then(authInstance => {
-      setAuth(authInstance); // Save the resolved auth instance
-      const unsubscribe = onAuthStateChanged(authInstance, (currentUser) => {
+    const initFirebase = async () => {
+      try {
+        await initializeFirebase();
+        setIsFirebaseInitialized(true); // Mark Firebase as ready
+      } catch (error) {
+        console.error("Fatal: Could not initialize Firebase. App cannot function.", error);
+        // You could render an error message to the user here
+      }
+    };
+
+    initFirebase();
+  }, []); // Empty dependency array ensures this runs only once.
+
+  // Effect to set up the authentication listener AFTER Firebase is initialized
+  useEffect(() => {
+    // --- CHANGE: Do not run this effect until initialization is complete ---
+    if (isFirebaseInitialized) {
+      const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
         console.log("Auth state changed:", currentUser?.email || "No user");
         setUser(currentUser);
         if (!currentUser) {
           setConversation([]);
           setSuggestions([]);
         }
-        setLoading(false); // Firebase is initialized and auth state is known
       });
+      // Cleanup the listener when the component unmounts
       return () => unsubscribe();
-    }).catch(error => {
-        console.error("Firebase auth initialization failed", error);
-        setLoading(false); // Stop loading even if there's an error
-    });
-  }, []); // This effect runs only once on mount
+    }
+  }, [isFirebaseInitialized]); // This effect now depends on the initialization status
 
-  // --- ADD: A loading screen while waiting for Firebase ---
-  if (loading) {
-    return <div className="loading-container"><h1>Loading...</h1></div>;
-  }
-
-  // --- All handler functions (handleNewTranscriptPart, etc.) remain exactly the same ---
   const handleNewTranscriptPart = (transcriptPart) => {
-    console.log("App.jsx: Received new transcript:", transcriptPart);
     const newMessage = {
       text: transcriptPart,
       sender: 'other',
-      timestamp: new Date().toISOString() // Add timestamp for debugging
+      timestamp: new Date().toISOString()
     };
-
-    setConversation(prev => {
-      const updated = [...prev, newMessage];
-      console.log("App.jsx: Updated conversation:", updated);
-      return updated;
-    });
+    setConversation(prev => [...prev, newMessage]);
   };
 
   const handleNewSuggestions = (newSuggestions) => {
-    console.log("App.jsx: Received new suggestions:", newSuggestions);
     setSuggestions(newSuggestions);
   };
 
   const handleSuggestionSelect = (suggestionText) => {
-    console.log("App.jsx: Suggestion selected:", suggestionText);
     const newMessage = {
       text: suggestionText,
       sender: 'user',
       timestamp: new Date().toISOString()
     };
-    setConversation(prev => {
-      const updated = [...prev, newMessage];
-      console.log("App.jsx: Updated conversation after suggestion:", updated);
-      return updated;
-    });
-    // Clear suggestions after one is selected
+    setConversation(prev => [...prev, newMessage]);
     setSuggestions([]);
   };
 
   const handleUserMessageSend = (messageText) => {
-    console.log("App.jsx: User message sent:", messageText);
     const newMessage = {
       text: messageText,
       sender: 'user',
       timestamp: new Date().toISOString()
     };
-    setConversation(prev => {
-      const updated = [...prev, newMessage];
-      console.log("App.jsx: Updated conversation after user input:", updated);
-      return updated;
-    });
-    // Clear suggestions, as the user has chosen their own path
+    setConversation(prev => [...prev, newMessage]);
     setSuggestions([]);
   };
+
+  // --- CHANGE: Render a loading state until Firebase is ready ---
+  if (!isFirebaseInitialized) {
+    return <div className="loading-container"><h1>Initializing Authentication System...</h1></div>;
+  }
 
   return (
     <div className="app-container">
@@ -109,8 +99,8 @@ function App() {
               Settings
             </button>
           )}
-          {/* --- CHANGE: Pass the resolved auth object to the Auth component --- */}
-          <Auth user={user} auth={auth} />
+          {/* The Auth component now implicitly uses the imported 'auth' object */}
+          <Auth user={user} />
         </div>
       </header>
       <main>
@@ -123,7 +113,7 @@ function App() {
 
         <UserInput
           onSendMessage={handleUserMessageSend}
-          isDisabled={!user} // Only disable if user is not logged in
+          isDisabled={!user}
         />
 
         <Controls

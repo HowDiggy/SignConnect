@@ -121,3 +121,12 @@ export const deleteQuestion = async (questionId) => {
   });
   return null;
 };
+
+export const getFirebaseConfig = async () => {
+  // This is an unauthenticated endpoint, so we use fetch directly
+  const response = await fetch(`${API_BASE_URL}/api/firebase-config`);
+  if (!response.ok) {
+    throw new Error("Could not fetch Firebase config");
+  }
+  return response.json();
+};
