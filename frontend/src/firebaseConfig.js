@@ -20,34 +20,30 @@ let auth;
  * @throws {Error} Throws an error if the configuration cannot be fetched or if initialization fails.
  */
 export const initializeFirebase = async () => {
-  // Prevent re-initialization if the app is already configured.
+  // Prevent re-initialization
   if (app) {
-    console.log("Firebase app already initialized.");
     return;
   }
 
   try {
+    // 1. Fetch the configuration from our secure backend endpoint
     const response = await fetch('/api/firebase-config');
     if (!response.ok) {
       throw new Error('Failed to fetch Firebase config from the backend.');
     }
     const firebaseConfig = await response.json();
+    console.log("1. [firebaseConfig.js] Received config from backend:", firebaseConfig);
 
-    // Initialize the Firebase app and auth services.
-    // --- TRACING LOGS START ---
-    console.log("1. [firebaseConfig.js] Received config, initializing app...", firebaseConfig);
+    // 2. Initialize the app and auth services using ONLY the fetched config
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
     console.log("2. [firebaseConfig.js] Firebase Initialized. The 'auth' object is:", auth);
-    // --- TRACING LOGS END ---
 
-    console.log("Firebase has been initialized successfully.");
   } catch (error) {
     console.error("Firebase initialization failed:", error);
-    // Re-throw the error to allow the calling component to handle it.
     throw error;
   }
 };
 
-// Export the auth object. It will be undefined until initializeFirebase() is called and completes.
+// Export the auth object. It will be undefined until initializeFirebase() completes.
 export { auth };
