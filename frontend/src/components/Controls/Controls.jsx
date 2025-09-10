@@ -16,7 +16,10 @@ function Controls({ user, onNewTranscription, onNewSuggestions }) {
     // --- 1. Establish WebSocket Connection ---
     const token = await user.getIdToken();
     // Point directly to the backend's unsecured websocket for local dev
-    const wsUrl = `ws://localhost:8000/api/ws`;
+    const { protocol, host } = window.location;
+    const wsScheme = protocol === 'https:' ? 'wss' : 'ws';
+    const wsUrl = `${wsScheme}://${host}/api/ws`;
+
     socketRef.current = new WebSocket(wsUrl);
 
     socketRef.current.onopen = () => {
