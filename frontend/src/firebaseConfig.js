@@ -34,8 +34,12 @@ export const initializeFirebase = async () => {
     const firebaseConfig = await response.json();
 
     // Initialize the Firebase app and auth services.
+    // --- TRACING LOGS START ---
+    console.log("1. [firebaseConfig.js] Received config, initializing app...", firebaseConfig);
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
+    console.log("2. [firebaseConfig.js] Firebase Initialized. The 'auth' object is:", auth);
+    // --- TRACING LOGS END ---
 
     console.log("Firebase has been initialized successfully.");
   } catch (error) {

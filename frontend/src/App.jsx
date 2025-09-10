@@ -23,8 +23,10 @@ function App() {
   useEffect(() => {
     const initFirebase = async () => {
       try {
+        console.log("3. [App.jsx] Calling initializeFirebase()...");
         await initializeFirebase();
         setIsFirebaseInitialized(true); // Mark Firebase as ready
+        console.log("4. [App.jsx] Initialization complete. Setting isFirebaseInitilizedto true.");
       } catch (error) {
         console.error("Fatal: Could not initialize Firebase. App cannot function.", error);
         // You could render an error message to the user here
@@ -86,9 +88,11 @@ function App() {
 
   // --- CHANGE: Render a loading state until Firebase is ready ---
   if (!isFirebaseInitialized) {
+    console.log("5. [App.jsx] Firebase not ready, rendering loading screen.");
     return <div className="loading-container"><h1>Initializing Authentication System...</h1></div>;
   }
 
+  console.log("6. [App.jsx] Firebase IS READY. Rendering main app.");
   return (
     <div className="app-container">
       <header>

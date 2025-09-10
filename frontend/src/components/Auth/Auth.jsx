@@ -21,6 +21,8 @@ import './Auth.css';
  */
 // --- CHANGE: Destructure 'auth' from props ---
 function Auth({ user, auth }) {
+  console.log("7. [Auth.jsx] Component has rendered. The 'auth' promp is", auth);
+
   // State for the input fields remains local to this component
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -32,6 +34,13 @@ function Auth({ user, auth }) {
     // ... (This function remains the same)
     const provider = new GoogleAuthProvider();
     try {
+      console.log("8. [Auth.jsx] 'Sign in with Google' clicked. Using auth object:", auth);
+
+      if (!auth) {
+        console.error("Auth object is not available!");
+        setError("Authentication service is not ready.");
+        return;
+      }
       // This 'auth' variable now correctly refers to the prop
       await signInWithPopup(auth, provider);
     } catch (error) {
