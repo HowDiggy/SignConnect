@@ -3,7 +3,8 @@
 // --- CHANGE: Import the 'auth' object directly, not the promise ---
 import { auth } from '../firebaseConfig';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+// const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+const API_BASE_URL = '';
 
 /**
  * Retrieves the Firebase authentication token from the currently signed-in user.
