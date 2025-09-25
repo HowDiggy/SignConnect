@@ -246,6 +246,7 @@ def update_question(
 
     Ensures the question belongs to the current user before applying updates.
     """
+    logger.info("Updating question for user.", question_id=question_id, user_id=user_id)
     # First, verify ownership
     db_question = (
         db.query(models.ScenarioQuestion)
@@ -260,6 +261,11 @@ def update_question(
     )
 
     if not db_question:
+        logger.warning(
+            "Question not found or user does not have ownership.",
+            question_id=question_id,
+            user_id=user_id,
+        )
         return None
 
     # Get the update data from the schema
@@ -272,7 +278,7 @@ def update_question(
     db.add(db_question)
     db.commit()
     db.refresh(db_question)
-
+    logger.info("Successfully updated question.", question_id=db_question.id)
     return db_question
 
 
@@ -288,6 +294,7 @@ def update_scenario(
 
     Ensures the scenario belongs to the current user before applying updates.
     """
+    logger.info("Updating scenario for user.", scenario_id=scenario_id, user_id=user_id)
     # Find the scenario and verify ownership in one query
     db_scenario = (
         db.query(models.Scenario)
@@ -296,6 +303,11 @@ def update_scenario(
     )
 
     if not db_scenario:
+        logger.warning(
+            "Scenario not found or user does not have ownership.",
+            scenario_id=scenario_id,
+            user_id=user_id,
+        )
         return None
 
     # Get the update data from the schema
@@ -308,7 +320,7 @@ def update_scenario(
     db.add(db_scenario)
     db.commit()
     db.refresh(db_scenario)
-
+    logger.info("Successfully updated scenario.", scenario_id=db_scenario.id)
     return db_scenario
 
 
@@ -321,6 +333,9 @@ def delete_preference_by_id(
     Ensures that the preference belongs to the specified user to prevent
     one user from deleting another's preferences.
     """
+    logger.info(
+        "Deleting preference for user.", preference_id=preference_id, user_id=user_id
+    )
     # Find the preference by its ID and ensure it belongs to the user
     preference_to_delete = (
         db.query(models.UserPreference)
@@ -332,12 +347,17 @@ def delete_preference_by_id(
     )
 
     if not preference_to_delete:
+        logger.warning(
+            "Preference not found or user does not have ownership.",
+            preference_id=preference_id,
+            user_id=user_id,
+        )
         # The preference doesn't exist or doesn't belong to this user
         return None
 
     db.delete(preference_to_delete)
     db.commit()
-
+    logger.info("Successfully deleted preference.", preference_id=preference_id)
     return preference_to_delete
 
 
@@ -356,6 +376,9 @@ def update_preference(
     :param preference_update:
     :return:
     """
+    logger.info(
+        "Updating preference for user.", preference_id=preference_id, user_id=user_id
+    )
     db_preference = (
         db.query(models.UserPreference)
         .filter(
@@ -366,6 +389,11 @@ def update_preference(
     )
 
     if not db_preference:
+        logger.warning(
+            "Preference not found or user does not have ownership.",
+            preference_id=preference_id,
+            user_id=user_id,
+        )
         return None
 
     # Simpler update logic
@@ -376,6 +404,7 @@ def update_preference(
     db.add(db_preference)
     db.commit()
     db.refresh(db_preference)
+    logger.info("Successfully updated preference.", preference_id=preference_id)
     return db_preference
 
 
@@ -388,7 +417,15 @@ def get_scenario(db: Session, scenario_id: uuid.UUID) -> models.Scenario | None:
     :param scenario_id:
     :return:
     """
-    return db.query(models.Scenario).filter(models.Scenario.id == scenario_id).first()
+    logger.info("Fetching scenario by ID.", scenario_id=scenario_id)
+    scenario = (
+        db.query(models.Scenario).filter(models.Scenario.id == scenario_id).first()
+    )
+    if scenario:
+        logger.info("Scenario found.", scenario_id=scenario_id)
+    else:
+        logger.warning("Scenario not found.", scenario_id=scenario_id)
+    return scenario
 
 
 def get_scenario_by_name(
@@ -402,12 +439,17 @@ def get_scenario_by_name(
     :param user_id:
     :return:
     """
-
-    return (
+    logger.info("Fetching scenario by name for user.", name=name, user_id=user_id)
+    scenario = (
         db.query(models.Scenario)
         .filter(models.Scenario.name == name, models.Scenario.user_id == user_id)
         .first()
     )
+    if scenario:
+        logger.info("Scenario found by name.", name=name, user_id=user_id)
+    else:
+        logger.warning("Scenario not found by name.", name=name, user_id=user_id)
+    return scenario
 
 
 def get_scenarios_by_user(db: Session, user_id: uuid.UUID) -> list[models.Scenario]:
@@ -432,17 +474,23 @@ def delete_scenario_by_id(
     """
     Deletes a scenario by its ID, but only if it belongs to the specified user.
     """
+    logger.info("Deleting scenario for user.", scenario_id=scenario_id, user_id=user_id)
     # This logic remains the same
     scenario_to_delete = (
         db.query(models.Scenario).filter(models.Scenario.id == scenario_id).first()
     )
 
     if not scenario_to_delete or scenario_to_delete.user_id != user_id:
+        logger.warning(
+            "Scenario not found or user does not have ownership.",
+            scenario_id=scenario_id,
+            user_id=user_id,
+        )
         return None
 
     db.delete(scenario_to_delete)
     db.commit()
-
+    logger.info("Successfully deleted scenario.", scenario_id=scenario_id)
     return scenario_to_delete
 
 
@@ -455,6 +503,7 @@ def delete_question_by_id(
     Ensures that the question belongs to a scenario owned by the specified user
     to prevent unauthorized deletions.
     """
+    logger.info("Deleting question for user.", question_id=question_id, user_id=user_id)
     # Query for the question and join with the scenario to check the owner
     question_to_delete = (
         db.query(models.ScenarioQuestion)
@@ -469,10 +518,15 @@ def delete_question_by_id(
     )
 
     if not question_to_delete:
+        logger.warning(
+            "Question not found or user does not have ownership.",
+            question_id=question_id,
+            user_id=user_id,
+        )
         # The question does not exist or does not belong to the user
         return None
 
     db.delete(question_to_delete)
     db.commit()
-
+    logger.info("Successfully deleted question.", question_id=question_id)
     return question_to_delete
