@@ -13,34 +13,12 @@ from .core.config import Settings
 # Import the new logging configuration function
 from .core.logging import configure_logging
 from .dependencies import get_db as get_db_dependency
-from .routers import firebase, questions, scenarios, users, websockets
+from .routers import firebase, questions, scenarios, users, websockets, health
 from .llm.client import GeminiClient
 
 
 # Configure logging right at the start
 configure_logging()
-
-# --- Sentry Initialization ---
-# Get settings to access the DSN
-# Note: This is a simple way to get settings here.
-# In very complex apps, you might pass settings around more explicitly.
-temp_settings = Settings()
-if temp_settings.SENTRY_DSN:
-    sentry_sdk.init(
-        dsn=temp_settings.SENTRY_DSN.get_secret_value(),
-        # Set traces_sample_rate to 1.0 to capture 100%
-        # of transactions for performance monitoring.
-        # Adjust in production.
-        traces_sample_rate=1.0,
-        # Set profiles_sample_rate to 1.0 to profile 100%
-        # of sampled transactions.
-        # Adjust in production.
-        profiles_sample_rate=1.0,
-        # Set the environment
-        environment=temp_settings.SENTRY_ENVIRONMENT,
-        shutdown_timeout=2,
-        debug=False,
-    )
 # Get a structlog logger instead of a standard one
 logger = structlog.get_logger(__name__)
 
@@ -61,6 +39,28 @@ def create_app(settings: Settings, testing: bool = False) -> FastAPI:
     """
     # Example of adding context to a log message
     logger.info("--- FACTORY: create_app() called ---", testing=testing)
+
+    # --- Sentry Initialization ---
+    if settings.SENTRY_DSN and not testing:
+        sentry_sdk.init(
+            dsn=settings.SENTRY_DSN.get_secret_value(),
+            # Set traces_sample_rate to 1.0 to capture 100%
+            # of transactions for performance monitoring.
+            # Adjust in production.
+            traces_sample_rate=1.0,
+            # Set profiles_sample_rate to 1.0 to profile 100%
+            # of sampled transactions.
+            # Adjust in production.
+            profiles_sample_rate=1.0,
+            # Set the environment
+            environment=settings.SENTRY_ENVIRONMENT,
+            shutdown_timeout=2,
+            debug=False,
+        )
+        logger.info(
+            "Sentry initialized for environment:",
+            environment=settings.SENTRY_ENVIRONMENT,
+        )
 
     # The factory is now responsible for creating the engine and SessionLocal
     # Using the computed DATABASE_URL from the settings object
@@ -111,5 +111,6 @@ def create_app(settings: Settings, testing: bool = False) -> FastAPI:
     app.include_router(questions.router)
     app.include_router(websockets.router)
     app.include_router(firebase.router)
+    app.include_router(health.router)
 
     return app

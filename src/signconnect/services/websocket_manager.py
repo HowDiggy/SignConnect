@@ -98,41 +98,80 @@ async def handle_message(
     elif msg_type == "get_suggestions":
         transcript = message.get("transcript", "")
         if transcript:
-            logger.info(f"Received request for suggestions for: {transcript}")
-
-            db_user = crud.get_user_by_email(db, email=user.get("email"))
-            if db_user:
-                # Fetch both preferences and the most similar question
-                preferences = crud.get_user_preferences(db, user_id=db_user.id)
-                preference_texts = [pref.preference_text for pref in preferences]
-
-                # Use the vector search to find relevant context from scenarios
-                similar_question = crud.find_similar_question(
-                    db, query_text=transcript, user_id=db_user.id
-                )
-
-                # Add the similar question's context to the prompt if found
-                conversation_history = []  # Placeholder for future enhancement
-                if similar_question:
-                    history_context = (
-                        f"Recall this related question and answer: "
-                        f"Q: '{similar_question.question_text}' "
-                        f"A: '{similar_question.user_answer_text}'"
-                    )
-                    conversation_history.append(history_context)
-
-                suggestions = llm_client.get_response_suggestions(
-                    transcript=transcript,
-                    user_preferences=preference_texts,
-                    conversation_history=conversation_history,
-                )
-            else:
-                # Fallback if user somehow isn't in DB
-                suggestions = ["Yes", "No", "Can you repeat that?"]
-
-            await manager.send_personal_json(
-                {"type": "suggestions", "data": suggestions}, websocket
+            logger.info(
+                "Received request for suggestions.", extra={"transcript": transcript}
             )
+            try:
+                db_user = crud.get_user_by_email(db, email=user.get("email"))
+                if db_user:
+                    logger.info(
+                        "User found in database.", extra={"user_id": db_user.id}
+                    )
+
+                    # Fetch both preferences and the most similar question
+                    preferences = crud.get_user_preferences(db, user_id=db_user.id)
+                    preference_texts = [pref.preference_text for pref in preferences]
+                    logger.info(
+                        "User preferences fetched.",
+                        extra={"preferences": preference_texts},
+                    )
+
+                    # Use the vector search to find relevant context from scenarios
+                    similar_question = crud.find_similar_question(
+                        db, query_text=transcript, user_id=db_user.id
+                    )
+                    logger.info(
+                        "Similarity search completed.",
+                        extra={"similar_question": similar_question},
+                    )
+
+                    # Add the similar question's context to the prompt if found
+                    conversation_history = []  # Placeholder for future enhancement
+                    if similar_question:
+                        history_context = (
+                            f"Recall this related question and answer: "
+                            f"Q: '{similar_question.question_text}' "
+                            f"A: '{similar_question.user_answer_text}'"
+                        )
+                        conversation_history.append(history_context)
+                    logger.info(
+                        "Conversation history created.",
+                        extra={"conversation_history": conversation_history},
+                    )
+
+                    suggestions = llm_client.get_response_suggestions(
+                        transcript=transcript,
+                        user_preferences=preference_texts,
+                        conversation_history=conversation_history,
+                    )
+                    logger.info(
+                        "Suggestions received from LLM.",
+                        extra={"suggestions": suggestions},
+                    )
+                else:
+                    # Fallback if user somehow isn't in DB
+                    logger.warning(
+                        "User not found in database. Using fallback suggestions.",
+                        extra={"email": user.get("email")},
+                    )
+                    suggestions = ["Yes", "No", "Can you repeat that?"]
+
+                await manager.send_personal_json(
+                    {"type": "suggestions", "data": suggestions}, websocket
+                )
+                logger.info(
+                    "Suggestions sent to client.", extra={"suggestions": suggestions}
+                )
+
+            except Exception:
+                logger.error(
+                    "An error occurred during suggestion generation.", exc_info=True
+                )
+                # Fallback in case of any error
+                suggestions = ["Error", "Try again", "Cancel"]
+                await manager.send_personal_json(
+                    {"type": "suggestions", "data": suggestions}, websocket
+                )
 
     elif msg_type == "ping":
         await manager.send_personal_json(

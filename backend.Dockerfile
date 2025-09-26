@@ -1,12 +1,8 @@
 # backend.Dockerfile
 
-# Use an official Python runtime as a parent image
-FROM python:3.12-slim
+# --- Build Stage ---
+FROM python:3.12-slim as builder
 
-# install curl to perform health check for backend service
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
-
-# Set the working directory inside the container
 WORKDIR /app
 
 # Install poetry
@@ -27,3 +23,24 @@ COPY src/alembic /app/alembic
 
 # Copy the rest of the application's source code
 COPY ./src /app/src
+
+# --- Final Stage ---
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Copy the virtual environment from the builder stage
+COPY --from=builder /app/.venv ./.venv
+# Copy the application code from the builder stage
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/alembic.ini ./
+COPY --from=builder /app/alembic ./alembic
+
+# Add the virtual environment to the PATH
+ENV PATH="/app/.venv/bin:$PATH"
+
+# Expose the port the app runs on
+EXPOSE 8000
+
+# The command to run when the container starts
+CMD ["uvicorn", "signconnect.main:app", "--host", "0.0.0.0", "--port", "8000"]

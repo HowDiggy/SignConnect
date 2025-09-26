@@ -22,8 +22,14 @@ class GeminiClient:
         Args:
             api_key: The Google Gemini API key.
         """
+        if not api_key:
+            logger.error(
+                "Gemini API key is missing. Suggestions will not be generated."
+            )
+            raise ValueError("API key for Gemini is not configured.")
+
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel("gemini-1.5-flash")
+        self.model = genai.GenerativeModel("gemini-2.0-flash-lite-001")
         logger.info("GeminiClient initialized successfully.")
 
     def get_response_suggestions(
@@ -61,13 +67,20 @@ class GeminiClient:
                 "relevant response suggestions, each on a new line, without any "
                 "numbering or bullet points."
             )
+            logger.info(
+                "Generating suggestions with the following prompt:", prompt=prompt
+            )
 
             response = self.model.generate_content(prompt)
+            logger.info(
+                "Received response from Gemini API.", response_text=response.text
+            )
 
             # Clean up the response and split into a list
             suggestions = [
                 line.strip() for line in response.text.split("\n") if line.strip()
             ]
+            logger.info("Parsed suggestions.", suggestions=suggestions)
             return suggestions[:3]  # Ensure we only return up to 3 suggestions
 
         except Exception as e:

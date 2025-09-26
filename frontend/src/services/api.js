@@ -1,23 +1,38 @@
 // frontend/src/services/api.js
-// Replace the entire file with this fixed version
 
+// --- CHANGE: Import the 'auth' object directly, not the promise ---
 import { auth } from '../firebaseConfig';
 
-// Use the correct base URL for Docker environment
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+// const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+const API_BASE_URL = '';
 
-// A helper function to get the user's auth token
+/**
+ * Retrieves the Firebase authentication token from the currently signed-in user.
+ * @returns {Promise<string|null>} A promise that resolves to the user's ID token, or null if no user is signed in.
+ */
 const getAuthToken = async () => {
-  if (!auth.currentUser) throw new Error("User not authenticated");
-  return await auth.currentUser.getIdToken();
+  // --- CHANGE: Directly access auth.currentUser, no 'await' is needed here ---
+  if (auth && auth.currentUser) {
+    return auth.currentUser.getIdToken();
+  }
+  return null;
 };
 
-// A helper for making authenticated requests
+/**
+ * A helper function for making authenticated API requests.
+ * @param {string} url - The API endpoint.
+ * @param {object} options - Fetch options (method, body, etc.).
+ * @returns {Promise<any>} The JSON response from the API.
+ */
 const fetchAuthenticated = async (url, options = {}) => {
   try {
     const token = await getAuthToken();
+    if (!token) {
+      // This case should ideally not be hit if the UI prevents actions when logged out,
+      // but it's good practice to have it.
+      throw new Error("User not authenticated. Cannot make API call.");
+    }
 
-    // Build the full URL
     const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
     console.log('API Call:', fullUrl);
 
@@ -26,13 +41,11 @@ const fetchAuthenticated = async (url, options = {}) => {
       'Authorization': `Bearer ${token}`,
     };
 
-    // Only add Content-Type header if there is a body
     if (options.body) {
       headers['Content-Type'] = 'application/json';
     }
 
     const response = await fetch(fullUrl, { ...options, headers });
-
     console.log('API Response:', response.status, response.statusText);
 
     if (!response.ok) {
@@ -41,9 +54,8 @@ const fetchAuthenticated = async (url, options = {}) => {
       throw new Error(`API request failed: ${response.status} ${response.statusText}`);
     }
 
-    // Handle cases with no JSON response body (like DELETE)
     if (response.status === 204 || response.headers.get("content-length") === "0") {
-        return null;
+      return null;
     }
     return response.json();
   } catch (error) {
@@ -51,6 +63,9 @@ const fetchAuthenticated = async (url, options = {}) => {
     throw error;
   }
 };
+
+// --- No changes are needed to the functions below this line ---
+// They will now work correctly because fetchAuthenticated is fixed.
 
 // --- Preferences API ---
 export const getPreferences = async () => {
@@ -66,7 +81,6 @@ export const addPreference = async (preferenceText) => {
 };
 
 export const deletePreference = async (preferenceId) => {
-  // DELETE requests don't have a body, so we return null on success
   await fetchAuthenticated(`/api/users/me/preferences/${preferenceId}`, {
     method: 'DELETE'
   });
@@ -118,4 +132,13 @@ export const deleteQuestion = async (questionId) => {
     method: 'DELETE'
   });
   return null;
+};
+
+// --- Firebase Config API (Unauthenticated) ---
+export const getFirebaseConfig = async () => {
+  const response = await fetch(`${API_BASE_URL}/api/firebase-config`);
+  if (!response.ok) {
+    throw new Error("Could not fetch Firebase config");
+  }
+  return response.json();
 };

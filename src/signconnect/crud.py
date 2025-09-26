@@ -1,16 +1,22 @@
+# src/signconnect/crud.py
+
 import uuid
+import structlog
 from sqlalchemy.orm import Session
 from sentence_transformers import SentenceTransformer
 from .db import models
-from . import schemas, db
+from . import schemas
 
 # ---- Model for Sentence Transformers ----
 # Load the model once the application starts.
 # 'all-MiniLM-L6-v2' is a great, lightweight model for this purpose.
-embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+
+logger = structlog.get_logger(__name__)
 
 
 # --- User CRUD ---
+
 
 def get_user(db: Session, user_id: uuid.UUID) -> models.User | None:
     """
@@ -19,7 +25,14 @@ def get_user(db: Session, user_id: uuid.UUID) -> models.User | None:
     :param user_id:
     :return:
     """
-    return db.query(models.User).filter(models.User.id == user_id).first()
+    logger.info("Fetching user by ID.", user_id=user_id)
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if user:
+        logger.info("User found.", user_id=user_id)
+    else:
+        logger.warning("User not found.", user_id=user_id)
+    return user
+
 
 def get_user_by_email(db: Session, email: str) -> models.User | None:
     """
@@ -28,11 +41,21 @@ def get_user_by_email(db: Session, email: str) -> models.User | None:
     :param email:
     :return:
     """
-    return db.query(models.User).filter(models.User.email == email).first()
+    logger.info("Fetching user by email.", email=email)
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if user:
+        logger.info("User found by email.", email=email)
+    else:
+        logger.warning("User not found by email.", email=email)
+    return user
+
 
 # --- User Preference CRUD ---
 
-def get_user_preferences(db: Session, user_id: uuid.UUID, skip: int = 0, limit: int = 100) -> list[models.UserPreference]:
+
+def get_user_preferences(
+    db: Session, user_id: uuid.UUID, skip: int = 0, limit: int = 100
+) -> list[models.UserPreference]:
     """
     Retrieves all preferences for a specific user.
 
@@ -42,7 +65,17 @@ def get_user_preferences(db: Session, user_id: uuid.UUID, skip: int = 0, limit: 
     :param limit:
     :return:
     """
-    return db.query(models.UserPreference).filter(models.UserPreference.user_id == user_id).offset(skip).limit(limit).all()
+    logger.info("Fetching user preferences.", user_id=user_id, skip=skip, limit=limit)
+    preferences = (
+        db.query(models.UserPreference)
+        .filter(models.UserPreference.user_id == user_id)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    logger.info(f"Found {len(preferences)} preferences for user.", user_id=user_id)
+    return preferences
+
 
 def create_user(db: Session, user: schemas.UserCreate) -> models.User:
     """
@@ -56,14 +89,18 @@ def create_user(db: Session, user: schemas.UserCreate) -> models.User:
         username=user.username,
         password_hash=placeholder_hash,
         firebase_uid=user.firebase_uid,
-        is_active=True
+        is_active=True,
     )
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
+    logger.info("Created new user.", user_id=db_user.id, email=db_user.email)
     return db_user
 
-def create_user_preference(db: Session, preference: schemas.UserPreferenceCreate, user_id: uuid.UUID) -> models.UserPreference:
+
+def create_user_preference(
+    db: Session, preference: schemas.UserPreferenceCreate, user_id: uuid.UUID
+) -> models.UserPreference:
     """
     Creates a user preference in our local DB.
     :param db:
@@ -75,10 +112,16 @@ def create_user_preference(db: Session, preference: schemas.UserPreferenceCreate
     db.add(db_preference)
     db.commit()
     db.refresh(db_preference)
+    logger.info(
+        "Created new user preference.", preference_id=db_preference.id, user_id=user_id
+    )
     return db_preference
 
+
 # --- Conversation Turn CRUD ---
-def create_conversation_turn(db: Session, turn: schemas.ConversationTurnCreate, user_id: uuid.UUID) -> models.ConversationTurn:
+def create_conversation_turn(
+    db: Session, turn: schemas.ConversationTurnCreate, user_id: uuid.UUID
+) -> models.ConversationTurn:
     """
     Creates a new conversation turn record for a user.
     :param db:
@@ -93,12 +136,16 @@ def create_conversation_turn(db: Session, turn: schemas.ConversationTurnCreate, 
     db.add(db_turn)
     db.commit()
     db.refresh(db_turn)
+    logger.info("Created new conversation turn.", turn_id=db_turn.id, user_id=user_id)
     return db_turn
 
 
 # --- Scenario and ScenarioQuestion CRUD ---
 
-def create_scenario(db: Session, scenario: schemas.ScenarioCreate, user_id: uuid.UUID) -> models.Scenario:
+
+def create_scenario(
+    db: Session, scenario: schemas.ScenarioCreate, user_id: uuid.UUID
+) -> models.Scenario:
     """
     Creates a new scenario record for a user.
     :param db:
@@ -111,9 +158,13 @@ def create_scenario(db: Session, scenario: schemas.ScenarioCreate, user_id: uuid
     db.add(db_scenario)
     db.commit()
     db.refresh(db_scenario)
+    logger.info("Created new scenario.", scenario_id=db_scenario.id, user_id=user_id)
     return db_scenario
 
-def create_scenario_question(db: Session, question: schemas.ScenarioQuestionCreate, scenario_id: uuid.UUID) -> models.ScenarioQuestion:
+
+def create_scenario_question(
+    db: Session, question: schemas.ScenarioQuestionCreate, scenario_id: uuid.UUID
+) -> models.ScenarioQuestion:
     """
     Creates a new question within a scenario and generates its vector embedding.
 
@@ -124,19 +175,29 @@ def create_scenario_question(db: Session, question: schemas.ScenarioQuestionCrea
     """
 
     # Generate the embedding from the question text
+    logger.info(
+        "Generating embedding for new scenario question.",
+        question_text=question.question_text,
+    )
     embedding = embedding_model.encode(question.question_text)
 
     db_question = models.ScenarioQuestion(
-        **question.model_dump(),
-        scenario_id=scenario_id,
-        question_embedding=embedding
+        **question.model_dump(), scenario_id=scenario_id, question_embedding=embedding
     )
     db.add(db_question)
     db.commit()
     db.refresh(db_question)
+    logger.info(
+        "Created new scenario question.",
+        question_id=db_question.id,
+        scenario_id=scenario_id,
+    )
     return db_question
 
-def find_similar_question(db: Session, query_text: str, user_id: uuid.UUID) -> models.ScenarioQuestion | None:
+
+def find_similar_question(
+    db: Session, query_text: str, user_id: uuid.UUID
+) -> models.ScenarioQuestion | None:
     """
     Finds the most similar ScenarioQuestion for a given user based on a query text.
 
@@ -147,43 +208,64 @@ def find_similar_question(db: Session, query_text: str, user_id: uuid.UUID) -> m
     """
 
     # Generate the embedding for the incoming transcribed text
+    logger.info("Generating embedding for similarity search.", query_text=query_text)
     query_embedding = embedding_model.encode(query_text)
 
     # Use the l2_distance function from pgvector to find the most similar question.
     # We join across the tables to ensure we only search questions owned by the current user.
+    logger.info("Performing similarity search for user.", user_id=user_id)
     similar_question = (
         db.query(models.ScenarioQuestion)
         .join(models.Scenario)
         .filter(models.Scenario.user_id == user_id)
-        .order_by(models.ScenarioQuestion.question_embedding.l2_distance(query_embedding))
+        .order_by(
+            models.ScenarioQuestion.question_embedding.l2_distance(query_embedding)
+        )
         .first()
     )
+    if similar_question:
+        logger.info(
+            "Found similar question.",
+            question_id=similar_question.id,
+            question_text=similar_question.question_text,
+        )
+    else:
+        logger.info("No similar question found for user.", user_id=user_id)
     return similar_question
+
 
 def update_question(
     db: Session,
     *,
     question_id: uuid.UUID,
     user_id: uuid.UUID,
-    question_update: schemas.ScenarioQuestionUpdate
+    question_update: schemas.ScenarioQuestionUpdate,
 ) -> models.ScenarioQuestion | None:
     """
     Updates a ScenarioQuestion.
 
     Ensures the question belongs to the current user before applying updates.
     """
+    logger.info("Updating question for user.", question_id=question_id, user_id=user_id)
     # First, verify ownership
     db_question = (
         db.query(models.ScenarioQuestion)
-        .join(models.Scenario, models.ScenarioQuestion.scenario_id == models.Scenario.id)
+        .join(
+            models.Scenario, models.ScenarioQuestion.scenario_id == models.Scenario.id
+        )
         .filter(
             models.ScenarioQuestion.id == question_id,
-            models.Scenario.user_id == user_id
+            models.Scenario.user_id == user_id,
         )
         .first()
     )
 
     if not db_question:
+        logger.warning(
+            "Question not found or user does not have ownership.",
+            question_id=question_id,
+            user_id=user_id,
+        )
         return None
 
     # Get the update data from the schema
@@ -196,28 +278,36 @@ def update_question(
     db.add(db_question)
     db.commit()
     db.refresh(db_question)
-
+    logger.info("Successfully updated question.", question_id=db_question.id)
     return db_question
+
 
 def update_scenario(
     db: Session,
     *,
     scenario_id: uuid.UUID,
     user_id: uuid.UUID,
-    scenario_update: schemas.ScenarioUpdate
+    scenario_update: schemas.ScenarioUpdate,
 ) -> models.Scenario | None:
     """
     Updates a Scenario.
 
     Ensures the scenario belongs to the current user before applying updates.
     """
+    logger.info("Updating scenario for user.", scenario_id=scenario_id, user_id=user_id)
     # Find the scenario and verify ownership in one query
-    db_scenario = db.query(models.Scenario).filter(
-        models.Scenario.id == scenario_id,
-        models.Scenario.user_id == user_id
-    ).first()
+    db_scenario = (
+        db.query(models.Scenario)
+        .filter(models.Scenario.id == scenario_id, models.Scenario.user_id == user_id)
+        .first()
+    )
 
     if not db_scenario:
+        logger.warning(
+            "Scenario not found or user does not have ownership.",
+            scenario_id=scenario_id,
+            user_id=user_id,
+        )
         return None
 
     # Get the update data from the schema
@@ -230,29 +320,44 @@ def update_scenario(
     db.add(db_scenario)
     db.commit()
     db.refresh(db_scenario)
-
+    logger.info("Successfully updated scenario.", scenario_id=db_scenario.id)
     return db_scenario
 
-def delete_preference_by_id(db: Session, *, preference_id: uuid.UUID, user_id: uuid.UUID) -> models.UserPreference | None:
+
+def delete_preference_by_id(
+    db: Session, *, preference_id: uuid.UUID, user_id: uuid.UUID
+) -> models.UserPreference | None:
     """
     Deletes a UserPreference by its ID.
 
     Ensures that the preference belongs to the specified user to prevent
     one user from deleting another's preferences.
     """
+    logger.info(
+        "Deleting preference for user.", preference_id=preference_id, user_id=user_id
+    )
     # Find the preference by its ID and ensure it belongs to the user
-    preference_to_delete = db.query(models.UserPreference).filter(
-        models.UserPreference.id == preference_id,
-        models.UserPreference.user_id == user_id
-    ).first()
+    preference_to_delete = (
+        db.query(models.UserPreference)
+        .filter(
+            models.UserPreference.id == preference_id,
+            models.UserPreference.user_id == user_id,
+        )
+        .first()
+    )
 
     if not preference_to_delete:
+        logger.warning(
+            "Preference not found or user does not have ownership.",
+            preference_id=preference_id,
+            user_id=user_id,
+        )
         # The preference doesn't exist or doesn't belong to this user
         return None
 
     db.delete(preference_to_delete)
     db.commit()
-
+    logger.info("Successfully deleted preference.", preference_id=preference_id)
     return preference_to_delete
 
 
@@ -261,7 +366,7 @@ def update_preference(
     *,
     preference_id: uuid.UUID,
     user_id: uuid.UUID,
-    preference_update: schemas.UserPreferenceUpdate
+    preference_update: schemas.UserPreferenceUpdate,
 ) -> models.UserPreference | None:
     """
     Updates a UserPreference.
@@ -271,12 +376,24 @@ def update_preference(
     :param preference_update:
     :return:
     """
-    db_preference = db.query(models.UserPreference).filter(
-        models.UserPreference.id == preference_id,
-        models.UserPreference.user_id == user_id
-    ).first()
+    logger.info(
+        "Updating preference for user.", preference_id=preference_id, user_id=user_id
+    )
+    db_preference = (
+        db.query(models.UserPreference)
+        .filter(
+            models.UserPreference.id == preference_id,
+            models.UserPreference.user_id == user_id,
+        )
+        .first()
+    )
 
     if not db_preference:
+        logger.warning(
+            "Preference not found or user does not have ownership.",
+            preference_id=preference_id,
+            user_id=user_id,
+        )
         return None
 
     # Simpler update logic
@@ -287,7 +404,9 @@ def update_preference(
     db.add(db_preference)
     db.commit()
     db.refresh(db_preference)
+    logger.info("Successfully updated preference.", preference_id=preference_id)
     return db_preference
+
 
 # --- helper functions for security and data integrity of endpoints ---
 def get_scenario(db: Session, scenario_id: uuid.UUID) -> models.Scenario | None:
@@ -298,9 +417,20 @@ def get_scenario(db: Session, scenario_id: uuid.UUID) -> models.Scenario | None:
     :param scenario_id:
     :return:
     """
-    return db.query(models.Scenario).filter(models.Scenario.id == scenario_id).first()
+    logger.info("Fetching scenario by ID.", scenario_id=scenario_id)
+    scenario = (
+        db.query(models.Scenario).filter(models.Scenario.id == scenario_id).first()
+    )
+    if scenario:
+        logger.info("Scenario found.", scenario_id=scenario_id)
+    else:
+        logger.warning("Scenario not found.", scenario_id=scenario_id)
+    return scenario
 
-def get_scenario_by_name(db: Session, name: str, user_id: uuid.UUID) -> models.Scenario | None:
+
+def get_scenario_by_name(
+    db: Session, name: str, user_id: uuid.UUID
+) -> models.Scenario | None:
     """
     Retrieved a scenario by its name for a specific user.
 
@@ -309,11 +439,18 @@ def get_scenario_by_name(db: Session, name: str, user_id: uuid.UUID) -> models.S
     :param user_id:
     :return:
     """
+    logger.info("Fetching scenario by name for user.", name=name, user_id=user_id)
+    scenario = (
+        db.query(models.Scenario)
+        .filter(models.Scenario.name == name, models.Scenario.user_id == user_id)
+        .first()
+    )
+    if scenario:
+        logger.info("Scenario found by name.", name=name, user_id=user_id)
+    else:
+        logger.warning("Scenario not found by name.", name=name, user_id=user_id)
+    return scenario
 
-    return db.query(models.Scenario).filter(
-        models.Scenario.name == name,
-        models.Scenario.user_id == user_id
-    ).first()
 
 def get_scenarios_by_user(db: Session, user_id: uuid.UUID) -> list[models.Scenario]:
     """
@@ -323,47 +460,73 @@ def get_scenarios_by_user(db: Session, user_id: uuid.UUID) -> list[models.Scenar
     :param user_id:
     :return:
     """
+    logger.info("Fetching all scenarios for user.", user_id=user_id)
+    scenarios = (
+        db.query(models.Scenario).filter(models.Scenario.user_id == user_id).all()
+    )
+    logger.info(f"Found {len(scenarios)} scenarios for user.", user_id=user_id)
+    return scenarios
 
-    return db.query(models.Scenario).filter(models.Scenario.user_id == user_id).all()
 
-def delete_scenario_by_id(db: Session, *, scenario_id: uuid.UUID, user_id: uuid.UUID) -> models.Scenario | None:
+def delete_scenario_by_id(
+    db: Session, *, scenario_id: uuid.UUID, user_id: uuid.UUID
+) -> models.Scenario | None:
     """
     Deletes a scenario by its ID, but only if it belongs to the specified user.
     """
+    logger.info("Deleting scenario for user.", scenario_id=scenario_id, user_id=user_id)
     # This logic remains the same
-    scenario_to_delete = db.query(models.Scenario).filter(models.Scenario.id == scenario_id).first()
+    scenario_to_delete = (
+        db.query(models.Scenario).filter(models.Scenario.id == scenario_id).first()
+    )
 
     if not scenario_to_delete or scenario_to_delete.user_id != user_id:
+        logger.warning(
+            "Scenario not found or user does not have ownership.",
+            scenario_id=scenario_id,
+            user_id=user_id,
+        )
         return None
 
     db.delete(scenario_to_delete)
     db.commit()
-
+    logger.info("Successfully deleted scenario.", scenario_id=scenario_id)
     return scenario_to_delete
 
-def delete_question_by_id(db: Session, *, question_id: uuid.UUID, user_id: uuid.UUID) -> models.ScenarioQuestion | None:
+
+def delete_question_by_id(
+    db: Session, *, question_id: uuid.UUID, user_id: uuid.UUID
+) -> models.ScenarioQuestion | None:
     """
     Deletes a ScenarioQuestion by its ID.
 
     Ensures that the question belongs to a scenario owned by the specified user
     to prevent unauthorized deletions.
     """
+    logger.info("Deleting question for user.", question_id=question_id, user_id=user_id)
     # Query for the question and join with the scenario to check the owner
     question_to_delete = (
         db.query(models.ScenarioQuestion)
-        .join(models.Scenario, models.ScenarioQuestion.scenario_id == models.Scenario.id)
+        .join(
+            models.Scenario, models.ScenarioQuestion.scenario_id == models.Scenario.id
+        )
         .filter(
             models.ScenarioQuestion.id == question_id,
-            models.Scenario.user_id == user_id
+            models.Scenario.user_id == user_id,
         )
         .first()
     )
 
     if not question_to_delete:
+        logger.warning(
+            "Question not found or user does not have ownership.",
+            question_id=question_id,
+            user_id=user_id,
+        )
         # The question does not exist or does not belong to the user
         return None
 
     db.delete(question_to_delete)
     db.commit()
-
+    logger.info("Successfully deleted question.", question_id=question_id)
     return question_to_delete
