@@ -29,7 +29,7 @@ class GeminiClient:
             raise ValueError("API key for Gemini is not configured.")
 
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel("gemini-1.5-flash-latest")
+        self.model = genai.GenerativeModel("gemini-2.0-flash-lite-001")
         logger.info("GeminiClient initialized successfully.")
 
     def get_response_suggestions(
