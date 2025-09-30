@@ -32,12 +32,10 @@ export const initializeFirebase = async () => {
       throw new Error('Failed to fetch Firebase config from the backend.');
     }
     const firebaseConfig = await response.json();
-    console.log("1. [firebaseConfig.js] Received config from backend:", firebaseConfig);
 
     // 2. Initialize the app and auth services using ONLY the fetched config
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
-    console.log("2. [firebaseConfig.js] Firebase Initialized. The 'auth' object is:", auth);
 
   } catch (error) {
     console.error("Firebase initialization failed:", error);

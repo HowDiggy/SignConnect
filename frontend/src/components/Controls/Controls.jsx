@@ -172,7 +172,7 @@ function Controls({ user, onNewTranscription, onNewSuggestions }) {
         </button>
       </div>
       <div className="status">
-        Connection Status: {isConnected ? <span className="status-connected">Connected</span> : <span className="status-disconnected">Disconnected</span>}
+        Connection Status: {isConnected ? <span className="status-connected">Connected</span> : <span className="status-disconnected">Ready</span>}
       </div>
     </div>
   );
